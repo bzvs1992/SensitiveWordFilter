@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ProjectModuleManager">
+    <modules>
+      <module fileurl="file://$PROJECT_DIR$/SensitiveWordFilter.iml" filepath="$PROJECT_DIR$/SensitiveWordFilter.iml" />
+      <module fileurl="file://E:/2020src/box/box-common/box-common.iml" filepath="E:/2020src/box/box-common/box-common.iml" />
+      <module fileurl="file://E:/2020src/box/box-server/box-server.iml" filepath="E:/2020src/box/box-server/box-server.iml" />
+      <module fileurl="file://$PROJECT_DIR$/../elasticsearch-analysis-ik/elasticsearch-analysis-ik.iml" filepath="$PROJECT_DIR$/../elasticsearch-analysis-ik/elasticsearch-analysis-ik.iml" />
+      <module fileurl="file://$PROJECT_DIR$/../elasticsearch-analysis-ik-wangxj/elasticsearch-analysis-ik (1).iml" filepath="$PROJECT_DIR$/../elasticsearch-analysis-ik-wangxj/elasticsearch-analysis-ik (1).iml" />
+      <module fileurl="file://$PROJECT_DIR$/../ads-logs/log_storm_report.iml" filepath="$PROJECT_DIR$/../ads-logs/log_storm_report.iml" />
+    </modules>
+  </component>
+</project>
