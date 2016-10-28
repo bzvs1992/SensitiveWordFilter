@@ -1,12 +1,15 @@
 import java.net.InetSocketAddress
 
+import org.apache.commons.pool2.impl.GenericObjectPoolConfig
 import org.apache.spark.SparkContext
 
 import com.gomeplus.util.Conf
 import org.apache.spark.ml.feature.{IDF, Tokenizer, HashingTF}
-import org.apache.spark.mllib.regression.LabeledPoint
 
-import org.apache.spark.ml.classification.NaiveBayes
+import org.apache.spark.ml.classification.{NaiveBayesModel, NaiveBayes}
+import org.slf4j.LoggerFactory
+import redis.clients.jedis.{JedisCluster, HostAndPort}
+
 //import org.apache.spark.mllib.classification.NaiveBayes
 import org.apache.spark.sql.SQLContext
 import org.apache.spark.streaming.kafka.KafkaUtils
@@ -16,17 +19,22 @@ import org.elasticsearch.client.transport.TransportClient
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.transport.InetSocketTransportAddress
 import org.elasticsearch.spark._
-
+import org.apache.spark.SparkConf
 /**
  * Created by wangxiaojing on 16/10/24.
  */
 
 object MLSensitiveWord {
 
+  val loggers = LoggerFactory.getLogger("MLSensitiveWord")
   val hdfsPath = "sensitiveFilter"
-  val conf = new Conf
-  val esHostname: Array[String] = conf.getEsHostname.split(",")
-  val clusterName: String = conf.getEsClusterName
+  // 敏感词的在redis中的主key
+  val ikMain = "ik_main"
+
+  // 生成es 连接
+  val config = new Conf
+  val esHostname: Array[String] = config.getEsHostname.split(",")
+  val clusterName: String = config.getEsClusterName
   var inetSocketAddress: InetSocketAddress = null
   for (hostname <- esHostname) {
     inetSocketAddress = new InetSocketAddress(hostname, 9300)
@@ -37,7 +45,6 @@ object MLSensitiveWord {
 
 
   def main (args: Array[String]){
-    import org.apache.spark.SparkConf
 
     val conf = new SparkConf().setAppName("MLSensitiveWord")
     conf.set("es.index.auto.create", "true")
@@ -52,7 +59,7 @@ object MLSensitiveWord {
 
     // 通过hdfs读取的数据作为和es内的数据作为训练数据，训练模型
 
-    //敏感词的lable设置为1，非敏感词的lable为0
+    //敏感词的lable设置为1.0，非敏感词的lable为0.0
     // 获取es中敏感词数据
     val sensitiveWordIndex = sc.esRDD("gome/word")
     val sensitiveWord = sensitiveWordIndex.map(x=>{
@@ -90,14 +97,16 @@ object MLSensitiveWord {
     //val trainDataFrameMllib = LabeledPoint(sensitiveWord.union(unSensitiveWords))
     //NaiveBayes.train(trainDataFrameMllib, lambda = 1.0, modelType = "multinomial")
 
-
     // 进行贝叶斯计算
     val nb = new NaiveBayes().setSmoothing(1.0).setModelType("multinomial")
     val model = nb.fit(tfidf)
 
+    //model.save("test")
+    NaiveBayesModel.load("test")
 
     sensitiveWord.map((x)=>{print(x._1 + " " + x._2)
     x}).collect()
+
 
     // 流数据计算
     val ssc = new StreamingContext(sc, Seconds(20))
@@ -137,16 +146,38 @@ object MLSensitiveWord {
         val label = predictionAndLabel.select("prediction").map(x=>{x.toString()})
         data = wordRdd.zip(label)
       }
-      data
+      val out = data.filter(x=>{x._2.equals("[1.0]")}).map(word=>{
+        println("word is " +word._1)
+        val long = getJedisCluster.sadd(ikMain,word._1)
+        (word,long)
+      })
+      out
     })
 
-    train.filter(x=>{!x._2.equals("[1.0]")}).print()
-    //train.print()
-    //words.map(x=>{println(x)})
+    train.print()
     ssc.start()
     ssc.awaitTermination()
 
   }
 
+  /**
+   * 创建redis的连接，
+   * */
+  def getJedisCluster(): JedisCluster ={
 
+    val config = new Conf
+    val redisHost = config.getRedisHosts.split(";")
+    // 获取redis地址
+    val jedisClusterNodes = new java.util.HashSet[HostAndPort]()
+    redisHost.foreach(x=>{
+      val redisHostAndPort = x.split(":")
+      jedisClusterNodes.add(new HostAndPort(redisHostAndPort(0),redisHostAndPort(1).toInt))
+    })
+
+    val redisTimeout = 3000
+    val poolConfig: GenericObjectPoolConfig = new GenericObjectPoolConfig
+    poolConfig.setJmxEnabled(false)
+    val jc:JedisCluster = new JedisCluster(jedisClusterNodes, redisTimeout, 10, poolConfig)
+    jc
+  }
 }
