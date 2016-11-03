@@ -1,6 +1,7 @@
 import java.net.InetSocketAddress
 
 import org.apache.commons.pool2.impl.GenericObjectPoolConfig
+import org.apache.hadoop.fs.Path
 import org.apache.spark.SparkContext
 
 import com.gomeplus.util.Conf
@@ -49,7 +50,7 @@ object MLSensitiveWord {
     val conf = new SparkConf().setAppName("MLSensitiveWord")
     conf.set("es.index.auto.create", "true")
 
-    val Array(zkQuorum, group, topics, numThreads) = args
+    //val Array(zkQuorum, group, topics, numThreads) = args
     val sparkConf = new SparkConf().setAppName("KafkaWordCount")
     sparkConf.set("es.nodes","wangxiaojingdeMacBook-Pro.local")
     val sc = new SparkContext(sparkConf)
@@ -65,9 +66,21 @@ object MLSensitiveWord {
     val sensitiveWord = sensitiveWordIndex.map(x=>{
       val words = x._2.getOrElse("word","word").toString
       (Array(words),1.0)})
+    //println(sensitiveWord.count())
+    //sensitiveWord.foreach(println)
+    sensitiveWord.cache().count()
 
     // 获取hdfs内的数据作为非敏感词数据进行训练模型
-    val unSensitiveWordLine =  sc.textFile(hdfsPath)
+    val unSensitiveWordLine =  sc.textFile(hdfsPath).map(x=>{
+      x.replace("@",
+        "").replace("?",
+        "").replace("!",
+        "").replace("//",
+        "").replace("\\",
+        "").replace("&",
+        "").replace("@",
+        "").trim
+    })
     val unSensitiveWords = unSensitiveWordLine.filter(_.size>0).flatMap(x=>{
       val analyzeResponse: AnalyzeResponse = client.admin.indices
         .prepareAnalyze(x).setAnalyzer("ik_smart").execute.actionGet
@@ -77,12 +90,15 @@ object MLSensitiveWord {
         sensitiveWordList = actual.get(i).getTerm ::sensitiveWordList
       }
       sensitiveWordList
-    }).map(x=>{(Array(x),0.0)})
+    }).distinct(10).map(x=>{(Array(x),0.0)})
 
-    // 生成tfidf 疵品
-    //val trainDataFrame = sensitiveWord.union(unSensitiveWords)
+    println(unSensitiveWords.count())
+    //println(unSensitiveWords.count())
+
     //创建一个(word，label) tuples
-    val trainDataFrame = sqlContext.createDataFrame(sensitiveWord.union(unSensitiveWords)).toDF("word","label")
+
+    val rdd = sensitiveWord.union(unSensitiveWords)
+    val trainDataFrame = sqlContext.createDataFrame(rdd).toDF("word","label")
     val hashingTF = new  HashingTF().setInputCol("word").setOutputCol("rawFeatures").setNumFeatures(20)
     val tf = hashingTF.transform(trainDataFrame)
     val idf = new IDF().setInputCol("rawFeatures").setOutputCol("features")
@@ -92,71 +108,32 @@ object MLSensitiveWord {
     tfidf.printSchema()
     tfidf.take(5).foreach(println)
 
-
     // 使用mlib方式
     //val trainDataFrameMllib = LabeledPoint(sensitiveWord.union(unSensitiveWords))
     //NaiveBayes.train(trainDataFrameMllib, lambda = 1.0, modelType = "multinomial")
 
     // 进行贝叶斯计算
-    val nb = new NaiveBayes().setSmoothing(1.0).setModelType("multinomial")
+    val nb = new NaiveBayes().setSmoothing(1.0).setModelType("bernoulli")
     val model = nb.fit(tfidf)
 
+    // 保存贝叶斯模型
+    val path = new Path("test");
+    val hadoopConf = sc.hadoopConfiguration
+    val hdfs = org.apache.hadoop.fs.FileSystem.get(hadoopConf)
+    hdfs.deleteOnExit(path)
+
+    // 保存模型
+    model.write.overwrite().save("test")
     //model.save("test")
-    NaiveBayesModel.load("test")
 
-    sensitiveWord.map((x)=>{print(x._1 + " " + x._2)
-    x}).collect()
-
-
-    // 流数据计算
-    val ssc = new StreamingContext(sc, Seconds(20))
-    ssc.checkpoint("checkpoint")
-    val topicMap = topics.split(",").map((_, numThreads.toInt)).toMap
-    val lines = KafkaUtils.createStream(ssc, zkQuorum, group, topicMap).map(_._2)
-
-
-    // 通过流获取的数据作为测试数据使用
-    val words = lines.filter(_.size>0).flatMap(x=>{
-      val analyzeResponse: AnalyzeResponse = client.admin.indices
-        .prepareAnalyze(x).setAnalyzer("ik_smart").execute.actionGet
-      val actual  = analyzeResponse.getTokens
-      var sensitiveWordList = List(actual.get(0).getTerm)
-      for(i<- 1 to actual.size() - 1){
-        sensitiveWordList = actual.get(i).getTerm ::sensitiveWordList
-      }
-      sensitiveWordList
-    }).map(x=>{(Array(x),0.0)})
-
-
-
-    val train = words.transform(x=>{
-      val dataStreaming = sqlContext.createDataFrame(x).toDF("word","label")
-      var data = dataStreaming.rdd.map(x=>((x.get(0).toString,"ggg")))
-      if(dataStreaming.count() > 0){
-        //val data = x.union(sensitiveWord)
-        val hashingTFString = new  HashingTF().setInputCol("word").setOutputCol("rawFeatures").setNumFeatures(20)
-        val tfString = hashingTFString.transform(dataStreaming)
-        val idfString = new IDF().setInputCol("rawFeatures").setOutputCol("features")
-        val idfModelString = idfString.fit(tfString)
-        val tfidfString = idfModelString.transform(tfString)
-
-        val predictionAndLabel = model.transform(tfidfString)
-        predictionAndLabel.printSchema()
-        val wordRdd = predictionAndLabel.select("word").map(x=>{x.get(0).toString})
-        val label = predictionAndLabel.select("prediction").map(x=>{x.toString()})
-        data = wordRdd.zip(label)
-      }
-      val out = data.filter(x=>{x._2.equals("[1.0]")}).map(word=>{
-        println("word is " +word._1)
-        val long = getJedisCluster.sadd(ikMain,word._1)
-        (word,long)
-      })
-      out
-    })
-
-    train.print()
-    ssc.start()
-    ssc.awaitTermination()
+    // 模型验证
+    val loadModel = NaiveBayesModel.load("test")
+    val out = loadModel.transform(tfidf)
+    val tranformData = out.select("word","prediction","label").filter("prediction=label").count()
+    val tanformDataFalse = out.select("word","prediction","label").filter("prediction!=label").count()
+    val all = out.count()
+    val num = tranformData/(all)
+    println("总计： " + all + "正确 ： " + tranformData + " 错误个数：" + tanformDataFalse + "准确率 " + num)
 
   }
 
