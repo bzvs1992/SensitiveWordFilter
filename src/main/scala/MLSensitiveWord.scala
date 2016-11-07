@@ -50,7 +50,6 @@ object MLSensitiveWord {
     val conf = new SparkConf().setAppName("MLSensitiveWord")
     conf.set("es.index.auto.create", "true")
 
-    //val Array(zkQuorum, group, topics, numThreads) = args
     val sparkConf = new SparkConf().setAppName("KafkaWordCount")
     sparkConf.set("es.nodes","wangxiaojingdeMacBook-Pro.local")
     val sc = new SparkContext(sparkConf)
@@ -68,8 +67,6 @@ object MLSensitiveWord {
       words
      })
 
-    //println(sensitiveWord.count())
-    //sensitiveWord.foreach(println)
     val size = sensitiveWord.cache().count().toDouble
 
     // 获取hdfs内的数据作为非敏感词数据进行训练模型
@@ -92,16 +89,15 @@ object MLSensitiveWord {
         sensitiveWordList = actual.get(i).getTerm ::sensitiveWordList
       }
       sensitiveWordList
-    }).distinct(10)//.map(x=>{(Array(x),0.0)})
+    }).distinct(10)
 
     println(unSensitiveWords.count())
-    //println(unSensitiveWords.count())
+
 
     //创建一个(word，label) tuples
 
-    val sensitiveWord_2 = sensitiveWord.map(x=>{(Array(x),1.0)})
-    val unSensitiveWords_2 = unSensitiveWords.subtract(sensitiveWord).map(x=>{(Array(x),0.0)})
-    //val unSensitiveWords_2 = unSensitiveWords.map(x=>{(Array(x),0.0)})
+    val sensitiveWord_2 = sensitiveWord.map(x=>{(Seq(x),1.0)})
+    val unSensitiveWords_2 = unSensitiveWords.subtract(sensitiveWord).map(x=>{(Seq(x),0.0)})
 
     val rdd = sensitiveWord_2.union(unSensitiveWords_2)
     val trainDataFrame = sqlContext.createDataFrame(rdd).toDF("word","label")
@@ -111,14 +107,8 @@ object MLSensitiveWord {
     val idf = new IDF().setInputCol("rawFeatures").setOutputCol("features")
     val idfModel = idf.fit(tf)
     val tfidf = idfModel.transform(tf)
-    //tfidf.show(10)
 
     tfidf.printSchema()
-    //tfidf.take(5).foreach(println)
-
-    // 使用mlib方式
-    //val trainDataFrameMllib = LabeledPoint(sensitiveWord.union(unSensitiveWords))
-    //NaiveBayes.train(trainDataFrameMllib, lambda = 1.0, modelType = "multinomial")
 
     // 进行贝叶斯计算
     val nb = new NaiveBayes().setSmoothing(1.0).setModelType("multinomial")

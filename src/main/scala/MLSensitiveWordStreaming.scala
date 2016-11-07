@@ -1,7 +1,6 @@
 import java.net.InetSocketAddress
 
 import com.gomeplus.util.Conf
-import org.apache.commons.pool2.impl.GenericObjectPoolConfig
 import org.apache.spark.ml.classification.NaiveBayesModel
 import org.apache.spark.sql.SQLContext
 import org.apache.spark.{SparkContext, SparkConf}
@@ -77,18 +76,17 @@ object MLSensitiveWordStreaming {
         }
 
       }
-      println("word is " + sensitiveWordList)
+      //println("word is " + sensitiveWordList)
       sensitiveWordList
-    }).map(x=>{(Array(x),0.0)})
+    }).map(x=>{(Seq(x),0.0)})
 
 
 
     val train = words.transform(x=>{
       val dataStreaming = sqlContext.createDataFrame(x).toDF("word","label")
-      var data = dataStreaming.rdd.map(x=>((x.get(0).toString,"ggg")))
+      var data = dataStreaming.rdd.map(x=>((x.getString(0),"ggg")))
       if(dataStreaming.count() > 0){
-        //val data = x.union(sensitiveWord)
-        val hashingTFString = new  HashingTF().setInputCol("word").setOutputCol("rawFeatures").setNumFeatures(20)
+        val hashingTFString = new  HashingTF().setInputCol("word").setOutputCol("rawFeatures").setNumFeatures(2000)
         val tfString = hashingTFString.transform(dataStreaming)
         val idfString = new IDF().setInputCol("rawFeatures").setOutputCol("features")
         val idfModelString = idfString.fit(tfString)
@@ -97,50 +95,25 @@ object MLSensitiveWordStreaming {
         val model =  NaiveBayesModel.load("test")
         val predictionAndLabel = model.transform(tfidfString)
         predictionAndLabel.printSchema()
-        val wordRdd = predictionAndLabel.select("word").map(x=>{x.get(0).toString})
+        val wordRdd = predictionAndLabel.select("word").map(x=>{x.getList(0).get(0).toString})
         val label = predictionAndLabel.select("prediction").map(x=>{x.toString()})
         data = wordRdd.zip(label)
       }
-      //val out =data
 
       val out = data.filter(x=>{x._2.equals("[1.0]")}).map(word=>{
-        println("word is " +word._1)
-
         val jedisCluster = JedisClient.getJedisCluster()
-        val long = jedisCluster.sadd(ikMain,word._1)
-        jedisCluster.publish(ikMain,word._1)
-        (word,long)
+        val long = jedisCluster.sadd(ikMain,word._1.toString)
+        jedisCluster.publish(ikMain,word._1.toString)
+        println("word is " +word._1)
+        (word._1.toString)
       })
 
       out
     })
 
-    words.print()
+    train.print()
     ssc.start()
     ssc.awaitTermination()
   }
-
-
-  /**
-   * 创建redis的连接，
-   * */
-  def getJedisCluster(): JedisCluster ={
-
-    val config = new Conf
-    val redisHost = config.getRedisHosts.split(";")
-    // 获取redis地址
-    val jedisClusterNodes = new java.util.HashSet[HostAndPort]()
-    redisHost.foreach(x=>{
-      val redisHostAndPort = x.split(":")
-      jedisClusterNodes.add(new HostAndPort(redisHostAndPort(0),redisHostAndPort(1).toInt))
-    })
-
-    val redisTimeout = 3000
-    val poolConfig: GenericObjectPoolConfig = new GenericObjectPoolConfig
-    poolConfig.setJmxEnabled(false)
-    val jc:JedisCluster = new JedisCluster(jedisClusterNodes, redisTimeout, 10, poolConfig)
-    jc
-  }
-
 
 }
