@@ -5,16 +5,13 @@ import org.apache.hadoop.fs.Path
 import org.apache.spark.SparkContext
 
 import com.gomeplus.util.Conf
-import org.apache.spark.ml.feature.{IDF, Tokenizer, HashingTF}
+import org.apache.spark.ml.feature.{IDF, HashingTF}
 
 import org.apache.spark.ml.classification.{NaiveBayesModel, NaiveBayes}
 import org.slf4j.LoggerFactory
 import redis.clients.jedis.{JedisCluster, HostAndPort}
 
-//import org.apache.spark.mllib.classification.NaiveBayes
 import org.apache.spark.sql.SQLContext
-import org.apache.spark.streaming.kafka.KafkaUtils
-import org.apache.spark.streaming.{Seconds, StreamingContext}
 import org.elasticsearch.action.admin.indices.analyze.AnalyzeResponse
 import org.elasticsearch.client.transport.TransportClient
 import org.elasticsearch.common.settings.Settings
@@ -145,26 +142,5 @@ object MLSensitiveWord {
     loggers.info("打标错误，正常词打成敏感词个数："+ ttof + " 敏感词打成正常词个数：" + ftot+ "错误判断敏感词的概率" + ttot)
     loggers.info("总计： " + all + "正确 ： " + testData + " 错误个数：" + testDataFalse + " 准确率 :" + num + "%")
 
-  }
-
-  /**
-   * 创建redis的连接，
-   * */
-  def getJedisCluster(): JedisCluster ={
-
-    val config = new Conf
-    val redisHost = config.getRedisHosts.split(";")
-    // 获取redis地址
-    val jedisClusterNodes = new java.util.HashSet[HostAndPort]()
-    redisHost.foreach(x=>{
-      val redisHostAndPort = x.split(":")
-      jedisClusterNodes.add(new HostAndPort(redisHostAndPort(0),redisHostAndPort(1).toInt))
-    })
-
-    val redisTimeout = 3000
-    val poolConfig: GenericObjectPoolConfig = new GenericObjectPoolConfig
-    poolConfig.setJmxEnabled(false)
-    val jc:JedisCluster = new JedisCluster(jedisClusterNodes, redisTimeout, 10, poolConfig)
-    jc
   }
 }

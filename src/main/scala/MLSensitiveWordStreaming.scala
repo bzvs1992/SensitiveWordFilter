@@ -11,20 +11,22 @@ import org.elasticsearch.action.admin.indices.analyze.AnalyzeResponse
 import org.elasticsearch.client.transport.TransportClient
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.transport.InetSocketTransportAddress
-import redis.clients.jedis.{HostAndPort, JedisCluster}
+import org.elasticsearch.spark._
+import org.slf4j.LoggerFactory
 
 /**
  * Created by wangxiaojing on 16/11/3.
  */
 object MLSensitiveWordStreaming {
 
+  val loggers = LoggerFactory.getLogger("MLSensitiveWord Streaming")
   val ikMain = "ik_main"
   // 生成es 连接
   val config = new Conf
-  val esHostname: Array[String] = config.getEsHostname.split(",")
+  val esHostname = config.getEsHostname
   val clusterName: String = config.getEsClusterName
   var inetSocketAddress: InetSocketAddress = null
-  for (hostname <- esHostname) {
+  for (hostname <- esHostname.split(",")) {
     inetSocketAddress = new InetSocketAddress(hostname, 9300)
   }
   val settings: Settings = Settings.settingsBuilder.put("cluster.name", clusterName).build
@@ -39,7 +41,7 @@ object MLSensitiveWordStreaming {
 
     val Array(zkQuorum, group, topics, numThreads) = args
     val sparkConf = new SparkConf().setAppName("KafkaWordCount")
-    sparkConf.set("es.nodes","wangxiaojingdeMacBook-Pro.local")
+    sparkConf.set("es.nodes",esHostname)
     val sc = new SparkContext(sparkConf)
     // 创建sparksql
 
@@ -102,12 +104,13 @@ object MLSensitiveWordStreaming {
 
       val out = data.filter(x=>{x._2.equals("[1.0]")}).map(word=>{
         val jedisCluster = JedisClient.getJedisCluster()
-        val long = jedisCluster.sadd(ikMain,word._1.toString)
-        jedisCluster.publish(ikMain,word._1.toString)
-        println("word is " +word._1)
-        (word._1.toString)
+        val long = jedisCluster.sadd(ikMain,word._1)
+        jedisCluster.publish(ikMain,word._1)
+        loggers.debug("word is: " + word._1)
+        ("word",word._1)
       })
-
+      //将新的敏感词存入ES
+      out.saveToEs("gome/word")
       out
     })
 
