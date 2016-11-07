@@ -106,8 +106,9 @@ object MLSensitiveWordStreaming {
       val out = data.filter(x=>{x._2.equals("[1.0]")}).map(word=>{
         println("word is " +word._1)
 
-        val long = getJedisCluster().sadd(ikMain,word._1)
-        //jedisCluster.publish(ikMain,word._1)
+        val jedisCluster = JedisClient.getJedisCluster()
+        val long = jedisCluster.sadd(ikMain,word._1)
+        jedisCluster.publish(ikMain,word._1)
         (word,long)
       })
 
@@ -118,6 +119,7 @@ object MLSensitiveWordStreaming {
     ssc.start()
     ssc.awaitTermination()
   }
+
 
   /**
    * 创建redis的连接，

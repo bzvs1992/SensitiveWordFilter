@@ -70,7 +70,7 @@ object MLSensitiveWord {
 
     //println(sensitiveWord.count())
     //sensitiveWord.foreach(println)
-    sensitiveWord.cache().count()
+    val size = sensitiveWord.cache().count().toDouble
 
     // 获取hdfs内的数据作为非敏感词数据进行训练模型
     val unSensitiveWordLine =  sc.textFile(hdfsPath).map(x=>{
@@ -146,9 +146,13 @@ object MLSensitiveWord {
     val all = out.count().toDouble
     val num = testData/all*100
     val s = out.filter("prediction = 1.0").count()
-    loggers.info(" 最终输出敏感词个数 ：" +  s)
-    loggers.info("打标错误，正常词打成敏感词个数："+ t.count() + " 敏感词打成正常词个数：" + t1.count() )
-    t1.show(2000)
+    val ttof = t.count().toDouble
+    val ftot = t1.count().toDouble
+    val ttot = ttof/size*100
+
+    out.select("word","prediction","label").filter("prediction=label and label=1.0").show(100)
+    loggers.info(" 最终输出敏感词个数 ：" +  s + "实际上敏感词个数 " + size)
+    loggers.info("打标错误，正常词打成敏感词个数："+ ttof + " 敏感词打成正常词个数：" + ftot+ "错误判断敏感词的概率" + ttot)
     loggers.info("总计： " + all + "正确 ： " + testData + " 错误个数：" + testDataFalse + " 准确率 :" + num + "%")
 
   }
