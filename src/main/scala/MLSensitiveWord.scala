@@ -65,7 +65,9 @@ object MLSensitiveWord {
     val sensitiveWordIndex = sc.esRDD("gome/word")
     val sensitiveWord = sensitiveWordIndex.map(x=>{
       val words = x._2.getOrElse("word","word").toString
-      (Array(words),1.0)})
+      words
+     })
+
     //println(sensitiveWord.count())
     //sensitiveWord.foreach(println)
     sensitiveWord.cache().count()
@@ -90,34 +92,39 @@ object MLSensitiveWord {
         sensitiveWordList = actual.get(i).getTerm ::sensitiveWordList
       }
       sensitiveWordList
-    }).distinct(10).map(x=>{(Array(x),0.0)})
+    }).distinct(10)//.map(x=>{(Array(x),0.0)})
 
     println(unSensitiveWords.count())
     //println(unSensitiveWords.count())
 
     //创建一个(word，label) tuples
 
-    val rdd = sensitiveWord.union(unSensitiveWords)
+    val sensitiveWord_2 = sensitiveWord.map(x=>{(Array(x),1.0)})
+    val unSensitiveWords_2 = unSensitiveWords.subtract(sensitiveWord).map(x=>{(Array(x),0.0)})
+    //val unSensitiveWords_2 = unSensitiveWords.map(x=>{(Array(x),0.0)})
+
+    val rdd = sensitiveWord_2.union(unSensitiveWords_2)
     val trainDataFrame = sqlContext.createDataFrame(rdd).toDF("word","label")
-    val hashingTF = new  HashingTF().setInputCol("word").setOutputCol("rawFeatures").setNumFeatures(20)
+    val hashingTF = new  HashingTF().setInputCol("word").setOutputCol("rawFeatures").setNumFeatures(2000)
     val tf = hashingTF.transform(trainDataFrame)
+    tf.printSchema()
     val idf = new IDF().setInputCol("rawFeatures").setOutputCol("features")
     val idfModel = idf.fit(tf)
     val tfidf = idfModel.transform(tf)
+    //tfidf.show(10)
 
     tfidf.printSchema()
-    tfidf.take(5).foreach(println)
+    //tfidf.take(5).foreach(println)
 
     // 使用mlib方式
     //val trainDataFrameMllib = LabeledPoint(sensitiveWord.union(unSensitiveWords))
     //NaiveBayes.train(trainDataFrameMllib, lambda = 1.0, modelType = "multinomial")
 
     // 进行贝叶斯计算
-    val nb = new NaiveBayes().setSmoothing(1.0).setModelType("bernoulli")
+    val nb = new NaiveBayes().setSmoothing(1.0).setModelType("multinomial")
     val model = nb.fit(tfidf)
-
     // 保存贝叶斯模型
-    val path = new Path("test");
+    val path = new Path("test")
     val hadoopConf = sc.hadoopConfiguration
     val hdfs = org.apache.hadoop.fs.FileSystem.get(hadoopConf)
     hdfs.deleteOnExit(path)
@@ -129,11 +136,20 @@ object MLSensitiveWord {
     // 模型验证
     val loadModel = NaiveBayesModel.load("test")
     val out = loadModel.transform(tfidf)
-    val tranformData = out.select("word","prediction","label").filter("prediction=label").count()
-    val tanformDataFalse = out.select("word","prediction","label").filter("prediction!=label").count()
-    val all = out.count()
-    val num = tranformData/(all)
-    println("总计： " + all + "正确 ： " + tranformData + " 错误个数：" + tanformDataFalse + "准确率 " + num)
+    val testData = out.select("word","prediction","label").filter("prediction=label").count().toDouble
+    val testDataFalse_data = out.select("word","prediction","label").filter("prediction!=label")
+    val testDataFalse = testDataFalse_data.count().toDouble
+    //testDataFalse_data.foreach(println)
+    val t = testDataFalse_data.filter("prediction = 1.0 and label = 0.0" )
+    val t1 = testDataFalse_data.filter("prediction = 0.0 and label = 1.0" )
+
+    val all = out.count().toDouble
+    val num = testData/all*100
+    val s = out.filter("prediction = 1.0").count()
+    loggers.info(" 最终输出敏感词个数 ：" +  s)
+    loggers.info("打标错误，正常词打成敏感词个数："+ t.count() + " 敏感词打成正常词个数：" + t1.count() )
+    t1.show(2000)
+    loggers.info("总计： " + all + "正确 ： " + testData + " 错误个数：" + testDataFalse + " 准确率 :" + num + "%")
 
   }
 

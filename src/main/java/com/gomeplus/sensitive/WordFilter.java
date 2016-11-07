@@ -7,7 +7,10 @@ package com.gomeplus.sensitive;
 
 import org.elasticsearch.action.admin.indices.analyze.AnalyzeResponse;
 import org.elasticsearch.action.admin.indices.analyze.AnalyzeResponse.*;
-import org.elasticsearch.action.delete.DeleteRequestBuilder;
+import org.elasticsearch.action.admin.indices.exists.indices.IndicesExistsRequest;
+import org.elasticsearch.action.admin.indices.exists.indices.IndicesExistsResponse;
+import org.elasticsearch.action.delete.DeleteResponse;
+import org.elasticsearch.action.admin.indices.delete.DeleteIndexResponse;
 import org.elasticsearch.action.get.GetResponse;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.index.IndexResponse;
@@ -39,14 +42,11 @@ public class WordFilter {
 
     private final static String GOME = "gome";
 
-    private final static String DATA_DIR = "data\\word";
+    private final static String DATA_DIR = "data/word";
 
     private final static String CHARSET = "UTF-8";
 
     private final static int ES_PORT = 9300;
-
-    // 自定义词典库文件
-    private final static String EXT_DICT = "mydict.dic";
 
     //创建Es客户端
     private static TransportClient client;
@@ -130,12 +130,13 @@ public class WordFilter {
                 }
             }
         } else {
-            System.out.println();
+            loggers.info("Dir is not Exit");
         }
     }
 
     /**
-     * 创建搜索ES关键词
+     *
+     * 搜索ES关键词
      *
      * @param str 被搜索的词
      * @return 如果存在敏感词，返回true，否则返回false
@@ -156,7 +157,8 @@ public class WordFilter {
                     for (SearchHit hit : hits) {
                         // 如果查找到立刻返回，不在做过多的判断
                         if (hit.getSource().containsValue(str)) {
-                            loggers.info("Sensitive word  : " + str);
+                            loggers.info("Index is : " + hit.getIndex() +
+                                    "ID is: " + hit.getId() + " type is:" + hit.getType() );
                             result = true;
                             return result;
                         }
@@ -195,7 +197,8 @@ public class WordFilter {
                         for (int forward = 0; forward >= -2; forward--) {
                             for (int backward = 1; backward <= 2; backward++) {
                                 int newStartOffset = (startOffset + forward) < 0 ? 0 : startOffset + forward;
-                                int newEndOffset = (endOffset + backward) > text.length() ? text.length() : endOffset + backward;
+                                int newEndOffset = (endOffset + backward) > text.length()
+                                        ? text.length() : endOffset + backward;
                                 String newWord = text.substring(newStartOffset, newEndOffset);
                                 boolean newWordIsSensitive = searchWord(newWord);
                                 // 是敏感词则返回true
@@ -205,11 +208,11 @@ public class WordFilter {
                                 }
                             }
                         }
-                        loggers.info("analyze Sensitive word : " + word);
+                        loggers.info("Analyze Sensitive word : " + word);
                         result = true;
                         return result;
                     }
-                    loggers.info(" term :" + analyzeToken.getTerm() + "\t position : " + analyzeToken.getPosition());
+                    loggers.info("Term :" + analyzeToken.getTerm() + "\t position : " + analyzeToken.getPosition());
                 }
                 return result;
             }
@@ -218,20 +221,47 @@ public class WordFilter {
         }
     }
 
+
     /**
      * 获取某个词的索引职位，目前不能使用
      */
     public void getIndex() {
         GetResponse getRequestBuilder = client.prepareGet().get();
-        loggers.info("source :" + getRequestBuilder.getSource());
+        loggers.info("Source :" + getRequestBuilder.getSource());
 
     }
 
     /**
-     * 删除指定数据，目前测试不成功
+     * 删除ES整个索引库
+     * @param indexName  索引库名称
+     * */
+    public boolean deleteEsIndex(String indexName){
+        boolean deleteRequest = true;
+        // 判断index是否存在
+        IndicesExistsRequest inExistsRequest = new IndicesExistsRequest(indexName);
+        IndicesExistsResponse inExistsResponse = client.admin().indices()
+                .exists(inExistsRequest).actionGet();
+        if(inExistsResponse.isExists()){
+            DeleteIndexResponse dResponse = client.admin().indices().prepareDelete(indexName).execute().actionGet();
+            deleteRequest = dResponse.isAcknowledged();
+        }else {
+            loggers.info("This index is not Exist");
+        }
+        return  deleteRequest;
+    }
+
+    /**
+     * 删除Es指定数据，目前测试不成功
+     * @param id  ID名称
      */
-    public DeleteRequestBuilder deleteEs(String id) {
-        client.admin().indices().prepareDelete(id);
-        return client.prepareDelete(GOME, WORD, id);
+    public boolean deleteEs(String id) {
+        boolean deleteRequest = false;
+        if(null != id){
+            DeleteResponse dResponse = client.prepareDelete(GOME, WORD, id).execute().actionGet();
+            loggers.info("Delete Es ID :" + id + " " + dResponse.isFound());
+            deleteRequest = dResponse.isFound();
+        }
+
+        return  deleteRequest;
     }
 }

@@ -50,9 +50,19 @@ object Word2verSensitiveWordModel {
     val sensitiveWord = sensitiveWordIndex.map(x=>{
       val words = x._2.getOrElse("word","word").toString
       (Array(words),1.0)})
+    sensitiveWord.cache().count()
 
     // 获取hdfs内的数据作为非敏感词数据进行训练模型
-    val unSensitiveWordLine =  sc.textFile(hdfsPath)
+    val unSensitiveWordLine =  sc.textFile(hdfsPath).map(x=>{
+      x.replace("@",
+        "").replace("?",
+        "").replace("!",
+        "").replace("//",
+        "").replace("\\",
+        "").replace("&",
+        "").replace("@",
+        "").trim
+    })
     val unSensitiveWords = unSensitiveWordLine.filter(_.size>0).flatMap(x=>{
       val analyzeResponse: AnalyzeResponse = client.admin.indices
         .prepareAnalyze(x).setAnalyzer("ik_smart").execute.actionGet
@@ -62,7 +72,7 @@ object Word2verSensitiveWordModel {
         sensitiveWordList = actual.get(i).getTerm ::sensitiveWordList
       }
       sensitiveWordList
-    }).map(x=>{(Array(x),0.0)})
+    }).distinct(10).map(x=>{(Array(x),0.0)})
 
     val trainDataFrame = sqlContext.createDataFrame(sensitiveWord.union(unSensitiveWords)).toDF("word","label")
 
@@ -89,12 +99,19 @@ object Word2verSensitiveWordModel {
     val pipeline = new Pipeline().setStages(Array(word2Vec,mlpc))
     val model = pipeline.fit(trainDataFrame)
 
+    /*
     model.write.overwrite().save("dir")
 
     val result = PipelineModel.load("dir").transform(trainDataFrame)
     result.printSchema()
     result.take(4).foreach(println)
-
+   */
+    val out = model.transform(trainDataFrame)
+    val tranformData = out.select("word","prediction","label").filter("prediction=label").count()
+    val tanformDataFalse = out.select("word","prediction","label").filter("prediction!=label").count()
+    val all = out.count()
+    val num = tranformData/(all)
+    println("总计： " + all + "正确 ： " + tranformData + " 错误个数：" + tanformDataFalse + "准确率 " + num)
 
   }
 }
