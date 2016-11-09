@@ -155,10 +155,11 @@ public class WordFilter {
                 //如果搜索到关键词，那么就意味着这个词是敏感词
                 if (hits.totalHits() > 0) {
                     for (SearchHit hit : hits) {
+                        String word = hit.getSource().get("word").toString();
                         // 如果查找到立刻返回，不在做过多的判断
-                        if (hit.getSource().containsValue(str)) {
+                        if (hit.getSource().containsValue(str)&&word.equals(str)) {
                             loggers.info("Index is : " + hit.getIndex() +
-                                    "ID is: " + hit.getId() + " type is:" + hit.getType() );
+                                    "ID is: " + hit.getId() + " type is:" + hit.getType() + " word is : " + word);
                             result = true;
                             return result;
                         }
@@ -170,6 +171,34 @@ public class WordFilter {
 
         }
         return result;
+    }
+
+    /**
+     * 查询词某个单词
+     *
+     * @param str  待查询的词
+     * @return 如果正常返回SearchHits，否则返回null
+     * */
+    public SearchHits searchAllWord(String str) {
+        //如果查询字符不为空
+        SearchHits result = null;
+        if (str != null & !str.isEmpty()) {
+            try {
+                // 直接使用termQuery 无法查询中文
+                //QueryBuilders.termQuery("word", str.trim());
+                QueryBuilder queryBuilder = QueryBuilders.matchPhraseQuery("word", str.trim());
+                SearchResponse response = client.prepareSearch(GOME).setTypes(WORD)
+                        .setQuery(queryBuilder).execute().actionGet();
+                SearchHits hits = response.getHits();
+                //如果搜索到关键词，那么就意味着这个词是敏感词
+                if (hits.totalHits() > 0) {
+                   result = hits;
+                }
+            } catch (IndexNotFoundException e) {
+                e.printStackTrace();
+            }
+        }
+        return  result;
     }
 
     /**
@@ -261,7 +290,6 @@ public class WordFilter {
             loggers.info("Delete Es ID :" + id + " " + dResponse.isFound());
             deleteRequest = dResponse.isFound();
         }
-
         return  deleteRequest;
     }
 }
