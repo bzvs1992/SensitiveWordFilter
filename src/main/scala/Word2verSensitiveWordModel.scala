@@ -95,21 +95,19 @@ object Word2verSensitiveWordModel {
       .setLabelCol("label")
       .setPredictionCol("prediction")
 
-
     val pipeline = new Pipeline().setStages(Array(word2Vec,mlpc))
     val model = pipeline.fit(trainDataFrame)
 
-    /*
     model.write.overwrite().save("dir")
 
     val result = PipelineModel.load("dir").transform(trainDataFrame)
     result.printSchema()
     result.take(4).foreach(println)
-   */
+
     val out = model.transform(trainDataFrame)
-    val tranformData = out.select("word","prediction","label").filter("prediction=label").count()
-    val tanformDataFalse = out.select("word","prediction","label").filter("prediction!=label").count()
-    val all = out.count()
+    val tranformData = out.select("word","prediction","label").filter("prediction=label").count().toDouble
+    val tanformDataFalse = out.select("word","prediction","label").filter("prediction!=label").count().toDouble
+    val all = out.count().toDouble
     val num = tranformData/(all)
     println("总计： " + all + "正确 ： " + tranformData + " 错误个数：" + tanformDataFalse + "准确率 " + num)
 
