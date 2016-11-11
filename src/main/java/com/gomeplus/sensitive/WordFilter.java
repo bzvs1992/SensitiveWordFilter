@@ -292,4 +292,15 @@ public class WordFilter {
         }
         return  deleteRequest;
     }
+
+    /**
+     * 将text转换成json格式，并从中获取文本信息
+     * */
+    public String getText(String text){
+        if(null != text){
+            //TODO
+        }
+        return  null;
+    }
+
 }

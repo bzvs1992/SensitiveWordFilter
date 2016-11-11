@@ -61,8 +61,12 @@ public class StormFilter {
         spoutConf.zkServers = Arrays.asList(zkServers);
         spoutConf.zkPort = Integer.valueOf(conf.getZkPort());
         TopologyBuilder builder = new TopologyBuilder();
+
+        //从kafka的消息队里获取数据到KAFKA_SPOUT_ID内
         builder.setSpout(KAFKA_SPOUT_ID, new KafkaSpout(spoutConf), 1);
+        //将过滤的数据输出命名为SENSITIVE_FILTER的的bolt中
         builder.setBolt(SENSITIVE_FILTER, new SensitiveWordBolt()).shuffleGrouping(KAFKA_SPOUT_ID);
+        // 创建kafka bolt 将数据发送到kafka
         KafkaBolt bolt = new KafkaBolt();
         // 设置producer配置
         Properties props = new Properties();
@@ -70,8 +74,9 @@ public class StormFilter {
         props.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer");
         props.put("value.serializer","org.apache.kafka.common.serialization.StringSerializer");
         bolt.withProducerProperties(props);
-        // storm 输出数据到kafka
+        // 将bolt产生的数据 输出数据到kafka
         bolt.withTopicSelector(new DefaultTopicSelector(conf.getStormToKafkaTopic()));
+        //管道名称SEND_TO_KAFKA
         builder.setBolt(SEND_TO_KAFKA,bolt,1).shuffleGrouping(SENSITIVE_FILTER);
         // 设置storm 的配置
         Config config = new Config();

@@ -55,6 +55,23 @@ public class Conf {
 
     private final static String REDIS_HOSTS = "redis_host";
 
+    // RabbitMQ host
+    private final static String RABBITMQ_HOST = "RabbitMQ_host";
+
+    //RabbitMQ port
+    private final static String RABBITMQ_PORT = "RabbitMQ_port";
+
+    // RabbitMQ username
+    private final static String RABBITMQ_USERNAME = "RabbitMQ_username";
+    // RabbitMQ password
+    private final static String RABBITMQ_PASSWORD = "RabbitMQ_password";
+    // RabbitMQ virtualHost
+    private final static String RABBITMQ_VIRTUAL_HOST = "RabbitMQ_virtualHost";
+    // RabbitMQ 消息队列名称
+    private final static String RABBITMQ_QUEUE_NAME = "RabbitMQ_queue_name";
+    // 定义文本数据在json结构体中的位置
+    private final static String JSON_TEXT = "json_TEXT";
+
     private Logger loggers;
 
 
@@ -127,5 +144,29 @@ public class Conf {
 
     public String getRedisHosts(){
         return  properties.getProperty(REDIS_HOSTS);
+    }
+
+    public String getRabbitMQHost(){
+        return  properties.getProperty(RABBITMQ_HOST);
+    }
+
+    public int getRabbitMQPort(){
+        return  Integer.parseInt(properties.getProperty(RABBITMQ_PORT));
+    }
+
+    public String getRabbitMQUsername(){
+        return  properties.getProperty(RABBITMQ_USERNAME);
+    }
+
+    public String getRabbitMQPassword(){
+        return  properties.getProperty(RABBITMQ_PASSWORD);
+    }
+
+    public String getRabbitMQVirtualHost(){
+        return  properties.getProperty(RABBITMQ_VIRTUAL_HOST);
+    }
+
+    public String getRabbitmqQueueName(){
+        return properties.getProperty(RABBITMQ_QUEUE_NAME);
     }
 }
