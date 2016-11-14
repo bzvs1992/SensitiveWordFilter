@@ -5,6 +5,8 @@ package com.gomeplus.sensitive;
  */
 
 
+import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONObject;
 import org.elasticsearch.action.admin.indices.analyze.AnalyzeResponse;
 import org.elasticsearch.action.admin.indices.analyze.AnalyzeResponse.*;
 import org.elasticsearch.action.admin.indices.exists.indices.IndicesExistsRequest;
@@ -71,6 +73,7 @@ public class WordFilter {
                 .put("cluster.name", clusterName).build();
         client = TransportClient.builder().settings(settings).build()
                 .addTransportAddress(new InetSocketTransportAddress(inetSocketAddress));
+
     }
 
     /**
@@ -298,9 +301,15 @@ public class WordFilter {
      * */
     public String getText(String text){
         if(null != text){
-            //TODO
+            JSONObject jsonObject = JSON.parseObject(new String(text.toString()));
+            String[] jsonText = conf.getJsonText().split(",");
+            int size = jsonText.length;
+            for(int i = 0 ; i <= size -2 ;i++){
+                jsonObject = jsonObject.getJSONObject(jsonText[i]);
+            }
+            String sensitiveCheck = jsonObject.getString(jsonText[size-1]);
+            return sensitiveCheck;
         }
         return  null;
     }
-
 }

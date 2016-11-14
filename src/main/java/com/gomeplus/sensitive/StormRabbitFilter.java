@@ -3,9 +3,9 @@ package com.gomeplus.sensitive;
 import com.gomeplus.util.Conf;
 import io.latent.storm.rabbitmq.RabbitMQBolt;
 import io.latent.storm.rabbitmq.RabbitMQSpout;
-import io.latent.storm.rabbitmq.config.ConnectionConfig;
-import io.latent.storm.rabbitmq.config.ConsumerConfig;
-import io.latent.storm.rabbitmq.config.ConsumerConfigBuilder;
+import io.latent.storm.rabbitmq.TupleToMessage;
+import io.latent.storm.rabbitmq.TupleToMessageNonDynamic;
+import io.latent.storm.rabbitmq.config.*;
 import org.apache.storm.Config;
 import org.apache.storm.LocalCluster;
 import org.apache.storm.StormSubmitter;
@@ -16,6 +16,7 @@ import org.apache.storm.spout.Scheme;
 import org.apache.storm.spout.SchemeAsMultiScheme;
 import org.apache.storm.topology.TopologyBuilder;
 import org.apache.storm.tuple.Fields;
+import org.apache.storm.tuple.Tuple;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -33,9 +34,9 @@ public class StormRabbitFilter {
 
     private static final String SENSITIVE_FILTER = "sensitive_filter";
 
-    private static final String SEND_TO_rabbit = "send_to_rabbit";
+    private static final String SEND_TO_RABBITMQ = "send_to_rabbitMQ";
 
-    private Logger loggers =  LoggerFactory.getLogger(StormRabbitFilter.class);
+    private static Logger loggers =  LoggerFactory.getLogger(StormRabbitFilter.class);
     /**
      * 敏感词获取接口操作
      */
@@ -49,7 +50,8 @@ public class StormRabbitFilter {
         int rabbitMQPort = conf.getRabbitMQPort();
         String rabbitMQPassword = conf.getRabbitMQPassword();
         String rabbitMQVirtualHost = conf.getRabbitMQVirtualHost();
-        String rabbitMQQueueName = conf.getRabbitmqQueueName();
+        String rabbitMQQueueName = conf.getRabbitMQQueueName();
+        String rabbitProducerName = conf.getRabbitmaProducerName();
 
         // rabbit mq 的spout
         Scheme scheme =new MyCustomMessageScheme();
@@ -70,20 +72,26 @@ public class StormRabbitFilter {
         //将过滤的数据输出命名为SENSITIVE_FILTER的的bolt中
         builder.setBolt(SENSITIVE_FILTER, new SensitiveWordBolt()).shuffleGrouping(RABBIT_SPOUT_ID);
 
-        /*
-        RabbitMQBolt bolt = new RabbitMQBolt();
-        //KafkaBolt bolt = new KafkaBolt();
-        // 设置producer配置
-        Properties props = new Properties();
-        props.put("bootstrap.servers", conf.getBootstrapServers());
-        props.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer");
-        props.put("value.serializer","org.apache.kafka.common.serialization.StringSerializer");
-        bolt.withProducerProperties(props);
-        // 将bolt产生的数据 输出数据到kafka
-        bolt.withTopicSelector(new DefaultTopicSelector(conf.getStormToKafkaTopic()));
-        //管道名称SEND_TO_KAFKA
-        builder.setBolt(SEND_TO_rabbit,bolt,1).shuffleGrouping(SENSITIVE_FILTER);
-        */
+
+        TupleToMessage schemeT = new TupleToMessageNonDynamic() {
+            @Override
+            protected  byte[] extractBody(Tuple input) { return input.getStringByField("text").getBytes(); }
+        };
+
+        ConnectionConfig connectionConfigOutPut = new ConnectionConfig(rabbitMQHost,
+                rabbitMQPort, rabbitMQUserName, rabbitMQPassword, rabbitMQVirtualHost, 10);
+        ProducerConfig sinkConfig = new ProducerConfigBuilder().connection(connectionConfigOutPut)
+                .contentEncoding("UTF-8")
+                .contentType("application/json")
+                .exchange("")
+                .routingKey(rabbitProducerName)
+                .build();
+
+        //将数据输出到rabbitMQ
+        builder.setBolt(SEND_TO_RABBITMQ, new RabbitMQBolt(schemeT))
+                .addConfigurations(sinkConfig.asMap())
+                .shuffleGrouping(SENSITIVE_FILTER);
+
 
         // 设置storm 的配置
         Config config = new Config();
@@ -99,8 +107,6 @@ public class StormRabbitFilter {
             LocalCluster cluster = new LocalCluster();
             cluster.submitTopology(name, config, builder.createTopology());
             Thread.sleep(60000);
-            cluster.killTopology(name);
-            cluster.shutdown();
         }
     }
 }

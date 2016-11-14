@@ -1,5 +1,7 @@
 package com.gomeplus.sensitive;
 
+import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONObject;
 import org.apache.storm.task.OutputCollector;
 import org.apache.storm.task.TopologyContext;
 import org.apache.storm.topology.OutputFieldsDeclarer;
@@ -21,21 +23,32 @@ public class SensitiveWordBolt extends BaseRichBolt {
 
     private OutputCollector collector;
 
-    private  static WordFilter wordFilter = null;
+    private static WordFilter wordFilter = null;
 
+    private static final String  IS_SENSITIVE = "isSensitive";
 
     public static synchronized WordFilter getWordFilter(){
         return  wordFilter ==null ? (wordFilter = new WordFilter()): wordFilter;
     }
     public void execute(Tuple tuple) {
-        String text = tuple.getString(0);
+        String text = tuple.getString(1);
         getWordFilter();
-        boolean textIsSensitive = wordFilter.semanticAnalysis(text);
-        // 如果这句话不含有敏感词汇
-        if(!textIsSensitive){
-            collector.emit(tuple,new Values(text));
+        String content = wordFilter.getText(text);
+        JSONObject jsonObject = JSON.parseObject(new String(text.toString()));
+        if(null != content ){
+            loggers.info(content);
+            boolean textIsSensitive = wordFilter.semanticAnalysis(content);
+            // 如果这句话不含有敏感词汇
+            if(!textIsSensitive){
+                jsonObject.put(IS_SENSITIVE, false);
+            }else{
+                jsonObject.put(IS_SENSITIVE, true);
+            }
+        }else{
+            jsonObject.put(IS_SENSITIVE, false);
         }
-
+        String resultText = jsonObject.toString();
+        collector.emit(tuple,new Values(resultText));
     }
 
     public void prepare(Map arg0, TopologyContext arg1, OutputCollector collector) {
