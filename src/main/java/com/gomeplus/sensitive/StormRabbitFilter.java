@@ -98,7 +98,6 @@ public class StormRabbitFilter {
                 .addConfigurations(sinkConfig.asMap())
                 .shuffleGrouping(SENSITIVE_FILTER);
 
-
         // 设置storm 的配置
         Config config = new Config();
         //config.put("kafka.broker.properties", props);
@@ -113,6 +112,8 @@ public class StormRabbitFilter {
             LocalCluster cluster = new LocalCluster();
             cluster.submitTopology(name, config, builder.createTopology());
             Thread.sleep(60000);
+            cluster.killTopology(name);
+            cluster.shutdown();
         }
     }
 }
