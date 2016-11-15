@@ -1,5 +1,3 @@
-package com.gomeplus.sensitive;
-
 import com.gomeplus.util.Conf;
 import org.apache.commons.pool2.impl.GenericObjectPoolConfig;
 import org.elasticsearch.common.logging.ESLogger;
@@ -23,7 +21,7 @@ public class RedisDictTest {
     public static ESLogger logger = Loggers.getLogger("ik-analyzer");
     public void redisDictTest(){
         Set<HostAndPort> hps = new HashSet<HostAndPort>();
-        hps.add(new HostAndPort("10.69.10.51", 6379));
+        hps.add(new HostAndPort("wangxiaojingdeMacBook-Pro.local", 6379));
         GenericObjectPoolConfig poolConfig =new GenericObjectPoolConfig();
         poolConfig.setJmxEnabled(false);
         jc = new JedisCluster(hps, 5000, 10, poolConfig);
@@ -32,7 +30,9 @@ public class RedisDictTest {
     public static void main(String[] args){
         /**/
         ScheduledExecutorService pool = Executors.newScheduledThreadPool(1);
-        pool.scheduleAtFixedRate(new RedisDict(),0,60, TimeUnit.SECONDS);
+        List<String> extDictFiles = new ArrayList<String>(2);
+        extDictFiles.add("127.0.0.1:6379");
+        pool.scheduleAtFixedRate(new RedisDict(extDictFiles),0,60, TimeUnit.SECONDS);
         /*
         Set<HostAndPort> hps = new HashSet<HostAndPort>();
         Conf conf = new Conf();
@@ -59,6 +59,6 @@ public class RedisDictTest {
             }
         }
 
-*/
+        */
     }
 }
