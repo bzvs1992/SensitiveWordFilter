@@ -1,9 +1,11 @@
 import java.net.InetSocketAddress
 
 import com.gomeplus.util.Conf
+import org.apache.hadoop.fs.Path
+import org.apache.spark.ml.evaluation.MulticlassClassificationEvaluator
 import org.apache.spark.ml.{PipelineModel, Pipeline}
-import org.apache.spark.ml.classification.MultilayerPerceptronClassifier
-import org.apache.spark.ml.feature.Word2Vec
+import org.apache.spark.ml.classification.{MultilayerPerceptronClassificationModel, MultilayerPerceptronClassifier}
+import org.apache.spark.ml.feature._
 import org.apache.spark.sql.SQLContext
 import org.apache.spark.{SparkContext, SparkConf}
 import org.elasticsearch.action.admin.indices.analyze.AnalyzeResponse
@@ -49,8 +51,8 @@ object Word2verSensitiveWordModel {
     val sensitiveWordIndex = sc.esRDD("gome/word")
     val sensitiveWord = sensitiveWordIndex.map(x=>{
       val words = x._2.getOrElse("word","word").toString
-      (Array(words),1.0)})
-    sensitiveWord.cache().count()
+     words})
+    val sensitiveWordcount = sensitiveWord.cache().count()
 
     // 获取hdfs内的数据作为非敏感词数据进行训练模型
     val unSensitiveWordLine =  sc.textFile(hdfsPath).map(x=>{
@@ -72,20 +74,46 @@ object Word2verSensitiveWordModel {
         sensitiveWordList = actual.get(i).getTerm ::sensitiveWordList
       }
       sensitiveWordList
-    }).distinct(10).map(x=>{(Array(x),0.0)})
+    }).subtract(sensitiveWord).distinct(10).map(x=>{(Array(x),0.0)})
 
-    val trainDataFrame = sqlContext.createDataFrame(sensitiveWord.union(unSensitiveWords)).toDF("word","label")
+    val Array(trainingData, testData) = unSensitiveWords.randomSplit(Array(0.2, 0.8))
+
+    val sensitiveWords = sensitiveWord.map(x=>{
+      val analyzeResponse: AnalyzeResponse = client.admin.indices
+        .prepareAnalyze(x).setAnalyzer("ik_max_word").execute.actionGet
+      val actual  = analyzeResponse.getTokens
+      var sensitiveWordList = List(actual.get(0).getTerm)
+      for(i<- 1 to actual.size() - 1){
+        sensitiveWordList = actual.get(i).getTerm ::sensitiveWordList
+      }
+      (sensitiveWordList.toArray,1.0)})
+
+    val sensitiveWords_only = sensitiveWord.map(x=>{(Array(x),1.0)})
+    val trainDataFrame = sqlContext.createDataFrame(sensitiveWords.union(unSensitiveWords)).toDF("word","label")
+/*
+    val labelIndexer = new StringIndexer()
+      .setInputCol("label")
+      .setOutputCol("indexedLabel")
+      .fit(trainDataFrame)
 
     val word2Vec = new Word2Vec()
       .setInputCol("word")
       .setOutputCol("features")
-      .setVectorSize(20)
+      .setVectorSize(1)
       .setMinCount(1)
 
-    val word2VecModel = word2Vec.fit(trainDataFrame)
+    val word2VecModel = word2Vec.fit(trainDataFrame)*/
 
+    val hashingTF = new  HashingTF().setInputCol("word").setOutputCol("rawFeatures").setNumFeatures(20)
+    val tf = hashingTF.transform(trainDataFrame)
+    tf.printSchema()
+    val idf = new IDF().setInputCol("rawFeatures").setOutputCol("features")
+    val idfModel = idf.fit(tf)
+    val tfidf = idfModel.transform(tf)
 
-    val layers = Array[Int](20,6,5,2)
+    tfidf.printSchema()
+
+    val layers = Array[Int](20,10,9,2)
     val mlpc = new MultilayerPerceptronClassifier()
       .setLayers(layers)
       .setBlockSize(512)
@@ -95,21 +123,64 @@ object Word2verSensitiveWordModel {
       .setLabelCol("label")
       .setPredictionCol("prediction")
 
-    val pipeline = new Pipeline().setStages(Array(word2Vec,mlpc))
+    /*
+    val labelConverter = new IndexToString()
+      .setInputCol("prediction")
+      .setOutputCol("predictedLabel")
+      .setLabels(labelIndexer.labels)
+
+    val pipeline = new Pipeline().setStages(Array(labelIndexer,word2Vec,mlpc,labelConverter))
     val model = pipeline.fit(trainDataFrame)
 
     model.write.overwrite().save("dir")
 
     val result = PipelineModel.load("dir").transform(trainDataFrame)
-    result.printSchema()
-    result.take(4).foreach(println)
 
-    val out = model.transform(trainDataFrame)
-    val tranformData = out.select("word","prediction","label").filter("prediction=label").count().toDouble
-    val tanformDataFalse = out.select("word","prediction","label").filter("prediction!=label").count().toDouble
-    val all = out.count().toDouble
-    val num = tranformData/(all)
-    println("总计： " + all + "正确 ： " + tranformData + " 错误个数：" + tanformDataFalse + "准确率 " + num)
+    val evaluator = new MulticlassClassificationEvaluator()
+      .setLabelCol("label")
+      .setPredictionCol("prediction")
+      .setMetricName("precision")
+    val predictionAccuracy = evaluator.evaluate(result)
+    */
 
+    val model = mlpc.fit(tfidf)
+
+    // 保存贝叶斯模型
+    val path = new Path("dir")
+    val hadoopConf = sc.hadoopConfiguration
+    val hdfs = org.apache.hadoop.fs.FileSystem.get(hadoopConf)
+    hdfs.deleteOnExit(path)
+
+    model.write.overwrite().save("dir")
+
+    /********************开始测试******************/
+    if(args.length>0 && args(0).equals("test")){
+      val testDataFrame = sqlContext.createDataFrame(sensitiveWords_only).toDF("word","label")
+      val testtdf = hashingTF.transform(testDataFrame)
+      val testidfModel = idf.fit(testtdf)
+      val testTfidf = testidfModel.transform(testtdf)
+
+      val result = model.transform(testTfidf)
+      result.printSchema()
+
+      val evaluator = new MulticlassClassificationEvaluator()
+        .setLabelCol("label")
+        .setPredictionCol("prediction")
+        .setMetricName("precision")
+      val predictionAccuracy = evaluator.evaluate(result)
+
+      //val out = model.transform(trainDataFrame)
+      val label_1 = result.select("word","prediction","label").filter("prediction=label and label=1.0")
+      val tranformData =label_1.count().toDouble
+      val tanformDataFalse = result.select("word","prediction","label").filter("prediction!=label").count().toDouble
+      val all = result.count().toDouble
+      val t = result.select("word","prediction","label").filter("prediction=label").filter("prediction=0.0").count()
+      result.select("word","prediction","label").filter("prediction!=label").show(6000)
+      label_1.show(10000)
+      val num = tranformData/(sensitiveWordcount.toDouble)
+      println("正确判断非敏感词个数 :" + t + " 正确判断敏感词的个数  " + tranformData)
+      println("总词汇量： " + all + "正确 ： " + tranformData + " 错误个数：" + tanformDataFalse + "准确率 " + num)
+      println("Testing Accuracy is %2.4f".format(predictionAccuracy * 100) + "%")
+    }
   }
 }
