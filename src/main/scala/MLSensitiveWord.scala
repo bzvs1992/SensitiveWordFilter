@@ -5,6 +5,7 @@ import org.apache.hadoop.fs.Path
 import org.apache.spark.SparkContext
 
 import com.gomeplus.util.Conf
+import org.apache.spark.ml.evaluation.MulticlassClassificationEvaluator
 import org.apache.spark.ml.feature.{IDF, HashingTF}
 
 import org.apache.spark.ml.classification.{NaiveBayesModel, NaiveBayes}
@@ -88,8 +89,6 @@ object MLSensitiveWord {
       sensitiveWordList
     }).distinct(10)
 
-    println(unSensitiveWords.count())
-
 
     //创建一个(word，label) tuples
 
@@ -118,29 +117,37 @@ object MLSensitiveWord {
 
     // 保存模型
     model.write.overwrite().save("test")
-    //model.save("test")
 
-    // 模型验证
-    val loadModel = NaiveBayesModel.load("test")
-    val out = loadModel.transform(tfidf)
-    val testData = out.select("word","prediction","label").filter("prediction=label").count().toDouble
-    val testDataFalse_data = out.select("word","prediction","label").filter("prediction!=label")
-    val testDataFalse = testDataFalse_data.count().toDouble
-    //testDataFalse_data.foreach(println)
-    val t = testDataFalse_data.filter("prediction = 1.0 and label = 0.0" )
-    val t1 = testDataFalse_data.filter("prediction = 0.0 and label = 1.0" )
+    /****************************开始测试*****************************/
+    if(args.length>0 && args(0).equals("test")){
+      loggers.info("Start test this model:")
+      val unSensitiveWordsCount = unSensitiveWords.count()
+      val testDataFrame = sqlContext.createDataFrame(sensitiveWord_2).toDF("word","label")
+      val testtdf = hashingTF.transform(testDataFrame)
+      val testidfModel = idf.fit(testtdf)
+      val testTfidf = testidfModel.transform(testtdf)
 
-    val all = out.count().toDouble
-    val num = testData/all*100
-    val s = out.filter("prediction = 1.0").count()
-    val ttof = t.count().toDouble
-    val ftot = t1.count().toDouble
-    val ttot = ttof/size*100
+      // 模型验证
+      val loadModel = NaiveBayesModel.load("test")
+      val out = loadModel.transform(testTfidf)
+      val testData = out.select("word","prediction","label").filter("prediction=label").count().toDouble
+      val testDataFalse_data = out.select("word","prediction","label").filter("prediction!=label")
+      val testDataFalse = testDataFalse_data.count().toDouble
+      //testDataFalse_data.foreach(println)
+      val t = testDataFalse_data.filter("prediction = 1.0 and label = 0.0" )
+      val t1 = testDataFalse_data.filter("prediction = 0.0 and label = 1.0" )
 
-    out.select("word","prediction","label").filter("prediction=label and label=1.0").show(100)
-    loggers.info(" 最终输出敏感词个数 ：" +  s + "实际上敏感词个数 " + size)
-    loggers.info("打标错误，正常词打成敏感词个数："+ ttof + " 敏感词打成正常词个数：" + ftot+ "错误判断敏感词的概率" + ttot)
-    loggers.info("总计： " + all + "正确 ： " + testData + " 错误个数：" + testDataFalse + " 准确率 :" + num + "%")
+      val all = out.count().toDouble
+      val num = testData/all*100
+      val s = out.filter("prediction = 1.0").count()
+      val ttof = t.count().toDouble
+      val ftot = t1.count().toDouble
+      val ttot = ftot/size*100
 
+      out.select("word","prediction","label").filter("prediction=label and label=1.0").show(100)
+      loggers.info("最终输出敏感词个数 ：" +  s + "实际上敏感词个数 " + size + "  非敏感词个数 ： " + unSensitiveWordsCount)
+      loggers.info("打标错误，正常词打成敏感词个数："+ ttof + " 敏感词打成正常词个数：" + ftot+ "错误判断敏感词的概率" + ttot)
+      loggers.info("总计： " + all + "正确 ： " + testData + " 错误个数：" + testDataFalse + " 准确率 :" + num + "%")
+    }
   }
 }
