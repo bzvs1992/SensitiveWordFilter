@@ -17,23 +17,23 @@ public class MainTest {
 
 
         WordFilter wordFilterMy = new WordFilter();
-        ArrayList<String> words = new ArrayList<String>();
-        words.add("出售冰毒");
-        words.add("出售炸弹");
+        //boolean result = wordFilterMy.deleteEsIndex("gome");
+        //System.out.println(result);
+        //ArrayList<String> words = new ArrayList<String>();
+        //words.add("出售冰毒");
+        //words.add("出售炸弹");
 
-        Dictionary.getSingleton().addStopWords(words);
-        wordFilterMy.semanticAnalysis("出售器官，眼角膜亚硝酰乙氧亚硒酸二钠求肾，妈妈不喜欢吃肉,出售手枪出售炸弹出售冰毒");
+        //Dictionary.getSingleton().addStopWords(words);
+        wordFilterMy.semanticAnalysis("眼角膜亚硝酰乙氧亚硒酸二钠求肾，妈妈不喜欢吃肉,出售手枪出售炸弹出售冰毒");
         //wordFilterMy.deleteEs();
-        /*
-        try {
-
-        }catch (Exception e){
-
-        }*/
         //String word = new String("0106658.cn".getBytes(),"UTF-8");
         //wordFilterMy.searchWord(word);
-        //wordFilterMy.fileCreateIndex();
-        //wordFilterMy.createIndex("woe");
+        // wordFilterMy.fileCreateIndex();
+        wordFilterMy.createIndex("彩宝我试试");
+        wordFilterMy.searchWord("彩宝");
+        boolean result = wordFilterMy.deleteEs("彩宝我试试");
+        System.out.println(result);
+        //wordFilterMy.searchWord("woe");
         //wordFilterMy.createIndex("woe2");
         //wordFilterMy.createIndex("3344");
        // wordFilterMy.getIndex();
