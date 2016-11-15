@@ -7,6 +7,7 @@ package com.gomeplus.sensitive;
 
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
+import org.apache.commons.pool2.impl.GenericObjectPoolConfig;
 import org.elasticsearch.action.admin.indices.analyze.AnalyzeResponse;
 import org.elasticsearch.action.admin.indices.analyze.AnalyzeResponse.*;
 import org.elasticsearch.action.admin.indices.exists.indices.IndicesExistsRequest;
@@ -23,7 +24,9 @@ import org.elasticsearch.common.xcontent.XContentBuilder;
 
 import java.io.*;
 import java.net.*;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import org.elasticsearch.index.IndexNotFoundException;
 import org.elasticsearch.index.query.QueryBuilder;
@@ -36,6 +39,8 @@ import static org.elasticsearch.common.xcontent.XContentFactory.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import com.gomeplus.util.Conf;
+import redis.clients.jedis.HostAndPort;
+import redis.clients.jedis.JedisCluster;
 
 
 public class WordFilter {
@@ -50,12 +55,17 @@ public class WordFilter {
 
     private final static int ES_PORT = 9300;
 
+    private final static String ikMain = "ik_main";
+
     //创建Es客户端
     private static TransportClient client;
 
     private Logger loggers;
 
     private Conf conf;
+
+    // redis 配置
+    private JedisCluster jc = null;
 
     /**
      * 构造函数，负责读取配置文件，完成Es设置
@@ -74,6 +84,18 @@ public class WordFilter {
         client = TransportClient.builder().settings(settings).build()
                 .addTransportAddress(new InetSocketTransportAddress(inetSocketAddress));
 
+        // redis 创建
+        String[] redisHosts = conf.getRedisHosts().split(";");
+        Set<HostAndPort> hps = new HashSet<HostAndPort>();
+        for (String redisHost : redisHosts) {
+            String[] hp = redisHost.split(":");
+            hps.add(new HostAndPort(hp[0], Integer.valueOf(hp[1]).intValue()));
+        }
+        GenericObjectPoolConfig poolConfig = new GenericObjectPoolConfig();
+        poolConfig.setJmxEnabled(false);
+        loggers.debug(hps.toString());
+        loggers.debug("start connect redis");
+        jc = new JedisCluster(hps, 2000, 10, poolConfig);
     }
 
     /**
@@ -90,7 +112,12 @@ public class WordFilter {
                         .startObject()
                         .field("word", word)
                         .endObject();
+                //创建es索引
                 IndexResponse response = client.prepareIndex(GOME, WORD).setSource(builder).get();
+                // 持久化到ik库，当重启时能继续加载已更新热词
+                jc.sadd(ikMain, word);
+                // 添加redid订阅内，完成热词更新操作
+                jc.publish(ikMain,word);
                 loggers.info(response.getId() + "   index: " + response.getIndex() + " word:  " + word);
             } catch (Exception e) {
                 e.printStackTrace();
@@ -120,8 +147,8 @@ public class WordFilter {
                         while ((tempString = reader.readLine()) != null) {
                             String word = tempString.trim();
                             //一行创建一个敏感词的的索引,如果敏感词库中已经包含该词，则不再继续创建索引
-                            boolean exitSensitiveWord = searchWord(word);
-                            if (!exitSensitiveWord) {
+                            String exitSensitiveWord = searchWord(word);
+                            if (null == exitSensitiveWord) {
                                 createIndex(word);
                             }
                         }
@@ -144,9 +171,9 @@ public class WordFilter {
      * @param str 被搜索的词
      * @return 如果存在敏感词，返回true，否则返回false
      */
-    public boolean searchWord(String str) {
+    public String searchWord(String str) {
         //如果查询字符不为空
-        boolean result = false;
+        String result = null;
         if (str != null & !str.isEmpty()) {
             try {
                 // 直接使用termQuery 无法查询中文
@@ -163,7 +190,7 @@ public class WordFilter {
                         if (hit.getSource().containsValue(str)&&word.equals(str)) {
                             loggers.info("Index is : " + hit.getIndex() +
                                     "ID is: " + hit.getId() + " type is:" + hit.getType() + " word is : " + word);
-                            result = true;
+                            result = hit.getId();
                             return result;
                         }
                     }
@@ -221,8 +248,9 @@ public class WordFilter {
                 for (AnalyzeToken analyzeToken : list) {
                     String word = analyzeToken.getTerm();
                     //如果是敏感词
-                    boolean isSensitive = searchWord(word);
-                    if (isSensitive) {
+                    String isSensitive = searchWord(word);
+                    if (null!=isSensitive) {
+                        loggers.info(word);
                         int startOffset = analyzeToken.getStartOffset();
                         int endOffset = analyzeToken.getEndOffset();
                         //递归查询是否是敏感词
@@ -232,9 +260,9 @@ public class WordFilter {
                                 int newEndOffset = (endOffset + backward) > text.length()
                                         ? text.length() : endOffset + backward;
                                 String newWord = text.substring(newStartOffset, newEndOffset);
-                                boolean newWordIsSensitive = searchWord(newWord);
+                                String newWordIsSensitive = searchWord(newWord);
                                 // 是敏感词则返回true
-                                if (newWordIsSensitive) {
+                                if (null != newWordIsSensitive) {
                                     result = true;
                                     return result;
                                 }
@@ -255,16 +283,7 @@ public class WordFilter {
 
 
     /**
-     * 获取某个词的索引职位，目前不能使用
-     */
-    public void getIndex() {
-        GetResponse getRequestBuilder = client.prepareGet().get();
-        loggers.info("Source :" + getRequestBuilder.getSource());
-
-    }
-
-    /**
-     * 删除ES整个索引库
+     * 删除ES整个索引库,即删除整个库
      * @param indexName  索引库名称
      * */
     public boolean deleteEsIndex(String indexName){
@@ -289,9 +308,14 @@ public class WordFilter {
     public boolean deleteEs(String id) {
         boolean deleteRequest = false;
         if(null != id){
-            DeleteResponse dResponse = client.prepareDelete(GOME, WORD, id).execute().actionGet();
-            loggers.info("Delete Es ID :" + id + " " + dResponse.isFound());
-            deleteRequest = dResponse.isFound();
+            String isExitWordID = searchWord(id);
+            if(null!=isExitWordID){
+                DeleteResponse dResponse = client.prepareDelete(GOME, WORD, isExitWordID).execute().actionGet();
+                loggers.info("Delete Es ID :" + id + " " + dResponse.isFound());
+                deleteRequest = dResponse.isFound();
+                //删除redis 集合中敏感词词词典
+                jc.srem(ikMain,id);
+            }
         }
         return  deleteRequest;
     }
