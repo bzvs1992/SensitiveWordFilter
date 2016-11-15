@@ -51,7 +51,11 @@ public class StormRabbitFilter {
         String rabbitMQPassword = conf.getRabbitMQPassword();
         String rabbitMQVirtualHost = conf.getRabbitMQVirtualHost();
         String rabbitMQQueueName = conf.getRabbitMQQueueName();
-        String rabbitProducerName = conf.getRabbitmaProducerName();
+        String rabbitProducerName = conf.getRabbitMQProducerName();
+        String rabbitExchangeName = conf.getRabbitMQExchangeName();
+        if(rabbitExchangeName.length()<=0){
+            throw new Exception("RabbitMQ queue unbind Exchange,please set ");
+        }
 
         // rabbit mq 的spout
         Scheme scheme =new MyCustomMessageScheme();
@@ -75,20 +79,22 @@ public class StormRabbitFilter {
 
         TupleToMessage schemeT = new TupleToMessageNonDynamic() {
             @Override
-            protected  byte[] extractBody(Tuple input) { return input.getStringByField("text").getBytes(); }
+            protected  byte[] extractBody(Tuple input) {
+                return input.getStringByField("text").getBytes();
+            }
         };
 
-        ConnectionConfig connectionConfigOutPut = new ConnectionConfig(rabbitMQHost,
-                rabbitMQPort, rabbitMQUserName, rabbitMQPassword, rabbitMQVirtualHost, 10);
-        ProducerConfig sinkConfig = new ProducerConfigBuilder().connection(connectionConfigOutPut)
+        ProducerConfig sinkConfig = new ProducerConfigBuilder()
+                .connection(connectionConfig)
                 .contentEncoding("UTF-8")
                 .contentType("application/json")
-                .exchange("")
+                .exchange(rabbitExchangeName)
                 .routingKey(rabbitProducerName)
+                .persistent()
                 .build();
 
         //将数据输出到rabbitMQ
-        builder.setBolt(SEND_TO_RABBITMQ, new RabbitMQBolt(schemeT))
+        builder.setBolt(SEND_TO_RABBITMQ, new RabbitMQBolt(schemeT),1)
                 .addConfigurations(sinkConfig.asMap())
                 .shuffleGrouping(SENSITIVE_FILTER);
 

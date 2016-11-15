@@ -70,9 +70,11 @@ public class Conf {
     // RabbitMQ 消息队列名称打算进行文本过滤的消息流
     private final static String RABBITMQ_QUEUE_NAME = "RabbitMQ_queue_name";
     // RabbitMQ 经过文本过滤后输出的消息流
-    private final static String RABBITMA_PRODUCER_NAME = "RabbitMQ_producer_name";
+    private final static String RABBITMQ_PRODUCER_NAME = "RabbitMQ_producer_name";
     // 定义文本数据在json结构体中的位置
     private final static String JSON_TEXT = "Json_TEXT";
+    // 输出到队列指定的exchange，这个不能为空
+    private final static String RABBITMQ_EXCHANGE_NAME = "RabbitMQ_exchange_name";
 
     private Logger loggers;
 
@@ -176,7 +178,10 @@ public class Conf {
         return properties.getProperty(JSON_TEXT);
     }
 
-    public String getRabbitmaProducerName(){
-        return properties.getProperty(RABBITMA_PRODUCER_NAME);
+    public String getRabbitMQProducerName(){
+        return properties.getProperty(RABBITMQ_PRODUCER_NAME);
+    }
+    public String getRabbitMQExchangeName(){
+        return  properties.getProperty(RABBITMQ_EXCHANGE_NAME);
     }
 }
