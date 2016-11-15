@@ -65,6 +65,7 @@ object Word2verSensitiveWordModel {
         "").replace("@",
         "").trim
     })
+
     val unSensitiveWords = unSensitiveWordLine.filter(_.size>0).flatMap(x=>{
       val analyzeResponse: AnalyzeResponse = client.admin.indices
         .prepareAnalyze(x).setAnalyzer("ik_smart").execute.actionGet
