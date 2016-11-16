@@ -1,3 +1,5 @@
+package com.gomeplus.sensitive
+
 import com.gomeplus.util.Conf
 import org.apache.commons.pool2.impl.GenericObjectPoolConfig
 import redis.clients.jedis.{HostAndPort, JedisCluster}

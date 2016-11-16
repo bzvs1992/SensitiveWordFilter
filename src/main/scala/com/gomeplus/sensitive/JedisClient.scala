@@ -1,6 +1,8 @@
+package com.gomeplus.sensitive
+
 import com.gomeplus.util.Conf
 import org.apache.commons.pool2.impl.GenericObjectPoolConfig
-import redis.clients.jedis.{JedisCluster, HostAndPort}
+import redis.clients.jedis.{HostAndPort, JedisCluster}
 
 /**
  * Created by wangxiaojing on 16/11/7.

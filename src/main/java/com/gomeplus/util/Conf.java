@@ -39,6 +39,8 @@ public class Conf {
 
     // zk 地址 eg：10.10.10.10:2181
     private final  static String ZK_STR = "brokerZkStr";
+
+    private final static String STREAMING_NUMThreads = "streaming_numThreads";
     //配置文件名字
     private final static String CONFIG_FILE = "conf.properties";
 
@@ -183,5 +185,9 @@ public class Conf {
     }
     public String getRabbitMQExchangeName(){
         return  properties.getProperty(RABBITMQ_EXCHANGE_NAME);
+    }
+
+    public String getStreamingNumThreads(){
+        return properties.getProperty(STREAMING_NUMThreads,"2");
     }
 }

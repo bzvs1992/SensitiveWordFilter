@@ -1,24 +1,19 @@
+package com.gomeplus.sensitive
+
 import java.net.InetSocketAddress
 
-import org.apache.commons.pool2.impl.GenericObjectPoolConfig
-import org.apache.hadoop.fs.Path
-import org.apache.spark.SparkContext
-
 import com.gomeplus.util.Conf
-import org.apache.spark.ml.evaluation.MulticlassClassificationEvaluator
-import org.apache.spark.ml.feature.{IDF, HashingTF}
-
-import org.apache.spark.ml.classification.{NaiveBayesModel, NaiveBayes}
-import org.slf4j.LoggerFactory
-import redis.clients.jedis.{JedisCluster, HostAndPort}
-
+import org.apache.hadoop.fs.Path
+import org.apache.spark.{SparkConf, SparkContext}
+import org.apache.spark.ml.classification.{NaiveBayes, NaiveBayesModel}
+import org.apache.spark.ml.feature.{HashingTF, IDF}
 import org.apache.spark.sql.SQLContext
 import org.elasticsearch.action.admin.indices.analyze.AnalyzeResponse
 import org.elasticsearch.client.transport.TransportClient
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.transport.InetSocketTransportAddress
 import org.elasticsearch.spark._
-import org.apache.spark.SparkConf
+import org.slf4j.LoggerFactory
 /**
  * Created by wangxiaojing on 16/10/24.
  */

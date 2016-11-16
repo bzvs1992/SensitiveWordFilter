@@ -1,12 +1,14 @@
+package com.gomeplus.sensitive
+
 import java.net.InetSocketAddress
 
 import com.gomeplus.util.Conf
-import org.apache.spark.ml.classification.{MultilayerPerceptronClassificationModel, NaiveBayesModel}
+import org.apache.spark.ml.classification.NaiveBayesModel
+import org.apache.spark.ml.feature.{HashingTF, IDF}
 import org.apache.spark.sql.SQLContext
-import org.apache.spark.{SparkContext, SparkConf}
-import org.apache.spark.ml.feature.{IDF, HashingTF}
 import org.apache.spark.streaming.kafka.KafkaUtils
 import org.apache.spark.streaming.{Seconds, StreamingContext}
+import org.apache.spark.{SparkConf, SparkContext}
 import org.elasticsearch.action.admin.indices.analyze.AnalyzeResponse
 import org.elasticsearch.client.transport.TransportClient
 import org.elasticsearch.common.settings.Settings
@@ -32,6 +34,9 @@ object MLSensitiveWordStreaming {
   val settings: Settings = Settings.settingsBuilder.put("cluster.name", clusterName).build
   val client: TransportClient = TransportClient.builder.settings(settings).
     build.addTransportAddress(new InetSocketTransportAddress(inetSocketAddress))
+  val zkQuorum = config.getZkStr
+  val topics = config.getTopic
+  val numThreads = config.getStreamingNumThreads
 
   def main(args: Array[String]) {
 
@@ -39,7 +44,6 @@ object MLSensitiveWordStreaming {
     val conf = new SparkConf().setAppName("MLSensitiveWord")
     conf.set("es.index.auto.create", "true")
 
-    val Array(zkQuorum, group, topics, numThreads) = args
     val sparkConf = new SparkConf().setAppName("KafkaWordCount")
     sparkConf.set("es.nodes",esHostname)
     val sc = new SparkContext(sparkConf)
@@ -50,7 +54,7 @@ object MLSensitiveWordStreaming {
     val ssc = new StreamingContext(sc, Seconds(20))
     //ssc.checkpoint("checkpoint")
     val topicMap = topics.split(",").map((_, numThreads.toInt)).toMap
-    val lines = KafkaUtils.createStream(ssc, zkQuorum, group, topicMap).map(_._2)
+    val lines = KafkaUtils.createStream(ssc, zkQuorum, "SensitiveFilter", topicMap).map(_._2)
 
 
     // 通过流获取的数据作为测试数据使用
