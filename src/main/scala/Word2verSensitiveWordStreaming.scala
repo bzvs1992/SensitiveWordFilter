@@ -1,5 +1,6 @@
 import java.net.InetSocketAddress
 
+import com.gomeplus.sensitive.JedisClient
 import com.gomeplus.util.Conf
 import org.apache.spark.ml.classification.{MultilayerPerceptronClassificationModel, NaiveBayesModel}
 import org.apache.spark.ml.feature.{HashingTF, IDF}
