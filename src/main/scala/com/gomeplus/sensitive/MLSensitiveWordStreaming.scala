@@ -34,7 +34,7 @@ object MLSensitiveWordStreaming {
   val settings: Settings = Settings.settingsBuilder.put("cluster.name", clusterName).build
   val client: TransportClient = TransportClient.builder.settings(settings).
     build.addTransportAddress(new InetSocketTransportAddress(inetSocketAddress))
-  val zkQuorum = config.getZkStr
+  val zkQuorum = config.getZkServers
   val topics = config.getTopic
   val numThreads = config.getStreamingNumThreads
 

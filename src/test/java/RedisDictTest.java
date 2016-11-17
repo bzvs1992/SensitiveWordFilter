@@ -32,6 +32,11 @@ public class RedisDictTest {
         ScheduledExecutorService pool = Executors.newScheduledThreadPool(1);
         List<String> extDictFiles = new ArrayList<String>(2);
         extDictFiles.add("127.0.0.1:6379");
+        extDictFiles.add("127.0.0.1:6380");
+        extDictFiles.add("127.0.0.1:8389");
+        extDictFiles.add("127.0.0.1:8889");
+        extDictFiles.add("127.0.0.1:8380");
+        extDictFiles.add("127.0.0.1:7379");
         pool.scheduleAtFixedRate(new RedisDict(extDictFiles),0,60, TimeUnit.SECONDS);
         /*
         Set<HostAndPort> hps = new HashSet<HostAndPort>();

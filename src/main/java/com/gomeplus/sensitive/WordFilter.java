@@ -14,6 +14,7 @@ import org.elasticsearch.action.admin.indices.exists.indices.IndicesExistsReques
 import org.elasticsearch.action.admin.indices.exists.indices.IndicesExistsResponse;
 import org.elasticsearch.action.delete.DeleteResponse;
 import org.elasticsearch.action.admin.indices.delete.DeleteIndexResponse;
+import org.elasticsearch.action.get.GetRequestBuilder;
 import org.elasticsearch.action.get.GetResponse;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.index.IndexResponse;
@@ -335,5 +336,10 @@ public class WordFilter {
             return sensitiveCheck;
         }
         return  null;
+    }
+
+    public void getEs(){
+        GetRequestBuilder getRequestBuilder =  client.prepareGet().setIndex(GOME).setType(WORD);
+        loggers.info(getRequestBuilder.toString());
     }
 }

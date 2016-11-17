@@ -24,15 +24,16 @@ public class MainTest {
         //words.add("出售炸弹");
 
         //Dictionary.getSingleton().addStopWords(words);
-        wordFilterMy.semanticAnalysis("眼角膜亚硝酰乙氧亚硒酸二钠求肾，妈妈不喜欢吃肉,出售手枪出售炸弹出售冰毒");
+        //wordFilterMy.semanticAnalysis("眼角膜亚硝酰乙氧亚硒酸二钠求肾，妈妈不喜欢吃肉,出售手枪出售炸弹出售冰毒");
         //wordFilterMy.deleteEs();
         //String word = new String("0106658.cn".getBytes(),"UTF-8");
         //wordFilterMy.searchWord(word);
         // wordFilterMy.fileCreateIndex();
         wordFilterMy.createIndex("彩宝我试试");
         wordFilterMy.searchWord("彩宝");
-        boolean result = wordFilterMy.deleteEs("彩宝我试试");
-        System.out.println(result);
+       // boolean result = wordFilterMy.deleteEs("彩宝我试试");
+        //System.out.println(result);
+        wordFilterMy.getEs();
         //wordFilterMy.searchWord("woe");
         //wordFilterMy.createIndex("woe2");
         //wordFilterMy.createIndex("3344");

@@ -13,10 +13,7 @@ import org.apache.storm.kafka.bolt.selector.DefaultTopicSelector;
 import org.apache.storm.spout.SchemeAsMultiScheme;
 import org.apache.storm.topology.TopologyBuilder;
 
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Properties;
+import java.util.*;
 
 import org.apache.commons.cli.*;
 import org.slf4j.Logger;
@@ -47,10 +44,15 @@ public class StormFilter {
     public static void main(String[] args) throws Exception {
         Conf conf = new Conf();
         String topic = conf.getTopic();
-        String[] zkServers = conf.getZkServers().split(",");
+        String[] zkServers = conf.getZkServers().split(";");
+        List<String> zkHosts = null;
+        for(String zkServer:zkServers){
+            String zkHost = zkServer.split(":")[0];
+            zkHosts.add(zkHost);
+        }
         //进度信息记录于zookeeper的哪个路径下
         String zkRoot = conf.getZkRoot();
-        String zkStr = conf.getZkStr();
+        String zkStr = conf.getZkServers();
         String clientId = conf.getStormId();
         //用以获取Kafka broker和partition的信息
         BrokerHosts brokerHosts = new ZkHosts(zkStr);
@@ -58,7 +60,7 @@ public class StormFilter {
         SpoutConfig spoutConf = new SpoutConfig(brokerHosts, topic, zkRoot, clientId);
         spoutConf.scheme = new SchemeAsMultiScheme(new StringScheme());
         //只有在local模式下需要记录读取状态时，才需要设置
-        spoutConf.zkServers = Arrays.asList(zkServers);
+        spoutConf.zkServers = zkHosts;
         spoutConf.zkPort = Integer.valueOf(conf.getZkPort());
         TopologyBuilder builder = new TopologyBuilder();
 

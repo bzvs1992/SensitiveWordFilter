@@ -37,17 +37,14 @@ public class Conf {
     //进度信息记录于zookeeper的哪个路径下
     private final static String ZK_ROOT= "zkRoot";
 
-    // zk 地址 eg：10.10.10.10:2181
-    private final  static String ZK_STR = "brokerZkStr";
-
-    private final static String STREAMING_NUMThreads = "streaming_numThreads";
+    private final static String STREAMING_NUMThreads = "streaming.numThreads";
     //配置文件名字
     private final static String CONFIG_FILE = "conf.properties";
 
     //进度记录的id，想要一个新的Spout读取之前的记录，应把它的id设为跟之前的一样。
     private final static String STORM_ID= "stormId";
 
-    private final static String STORM_NAME = "storm_name";
+    private final static String STORM_NAME = "storm.name";
 
     //kafka broker 地址
     private final static String BOOTSTRAP_SERVERS = "bootstrap.servers";
@@ -55,28 +52,28 @@ public class Conf {
     // 输入到kafka的主题
     private final static String STORM_TO_KAFKA_TOPIC = "storm.to.kafka.topic";
 
-    private final static String REDIS_HOSTS = "redis_host";
+    private final static String REDIS_HOSTS = "redis.servers";
 
     // RabbitMQ host
-    private final static String RABBITMQ_HOST = "RabbitMQ_host";
+    private final static String RABBITMQ_HOST = "RabbitMQ.host";
 
     //RabbitMQ port
-    private final static String RABBITMQ_PORT = "RabbitMQ_port";
+    private final static String RABBITMQ_PORT = "RabbitMQ.port";
 
     // RabbitMQ username
-    private final static String RABBITMQ_USERNAME = "RabbitMQ_username";
+    private final static String RABBITMQ_USERNAME = "RabbitMQ.username";
     // RabbitMQ password
-    private final static String RABBITMQ_PASSWORD = "RabbitMQ_password";
+    private final static String RABBITMQ_PASSWORD = "RabbitMQ.password";
     // RabbitMQ virtualHost
-    private final static String RABBITMQ_VIRTUAL_HOST = "RabbitMQ_virtualHost";
+    private final static String RABBITMQ_VIRTUAL_HOST = "RabbitMQ.virtualHost";
     // RabbitMQ 消息队列名称打算进行文本过滤的消息流
-    private final static String RABBITMQ_QUEUE_NAME = "RabbitMQ_queue_name";
+    private final static String RABBITMQ_QUEUE_NAME = "RabbitMQ.queue.name";
     // RabbitMQ 经过文本过滤后输出的消息流
-    private final static String RABBITMQ_PRODUCER_NAME = "RabbitMQ_producer_name";
+    private final static String RABBITMQ_PRODUCER_NAME = "RabbitMQ.producer.name";
     // 定义文本数据在json结构体中的位置
-    private final static String JSON_TEXT = "Json_TEXT";
+    private final static String JSON_TEXT = "Json.text";
     // 输出到队列指定的exchange，这个不能为空
-    private final static String RABBITMQ_EXCHANGE_NAME = "RabbitMQ_exchange_name";
+    private final static String RABBITMQ_EXCHANGE_NAME = "RabbitMQ.exchange.name";
 
     private Logger loggers;
 
@@ -127,11 +124,6 @@ public class Conf {
     public String getZkRoot(){
         return properties.getProperty(ZK_ROOT);
     }
-
-    public String getZkStr(){
-        return  properties.getProperty(ZK_STR);
-    }
-
     public String getStormId(){
         return  properties.getProperty(STORM_ID);
     }
