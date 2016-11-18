@@ -50,7 +50,7 @@ public class WordFilter {
 
     private final static String GOME = "gome";
 
-    private final static String DATA_DIR = "data/word";
+    private final static String DATA_DIR = "sensitiveWordData/word";
 
     private final static String CHARSET = "UTF-8";
 
@@ -78,7 +78,7 @@ public class WordFilter {
         String clusterName = conf.getEsClusterName();
         InetSocketAddress inetSocketAddress = null;
         for (String hostname : esHostname) {
-            inetSocketAddress = new InetSocketAddress(hostname, ES_PORT);
+            inetSocketAddress = new InetSocketAddress(hostname.split(":")[0],ES_PORT);
         }
         Settings settings = Settings.settingsBuilder()
                 .put("cluster.name", clusterName).build();
@@ -86,7 +86,7 @@ public class WordFilter {
                 .addTransportAddress(new InetSocketTransportAddress(inetSocketAddress));
 
         // redis 创建
-        String[] redisHosts = conf.getRedisHosts().split(";");
+        String[] redisHosts = conf.getRedisHosts().split(",");
         Set<HostAndPort> hps = new HashSet<HostAndPort>();
         for (String redisHost : redisHosts) {
             String[] hp = redisHost.split(":");

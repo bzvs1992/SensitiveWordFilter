@@ -12,6 +12,12 @@
 			<useProjectArtifact>false</useProjectArtifact>
 			<outputDirectory>lib</outputDirectory>
 			<unpack>false</unpack>
+			<excludes>
+				<exclude>spark:spark</exclude>
+				<exclude>spark-streaming-kafka_2.10:spark-streaming-kafka_2.10:*</exclude>
+				<exclude>spark-mllib_2.10:spark-mllib_2.10:*</exclude>
+				<exclude>spark-core_2.10:spark-core_2.10:*</exclude>
+			</excludes>
 		</dependencySet>
 	</dependencySets>
 
@@ -37,6 +43,28 @@
 				<include>*.properties</include>
 			</includes>
 		</fileSet>
+		<fileSet>
+			<directory>${project.basedir}/sensitiveWordData/word</directory>
+			<outputDirectory>sensitiveWordData/word</outputDirectory>
+			<includes>
+				<include>*</include>
+			</includes>
+		</fileSet>
+		<fileSet>
+			<directory>${project.basedir}/trainingData</directory>
+			<outputDirectory>trainingData</outputDirectory>
+			<includes>
+				<include>*</include>
+			</includes>
+		</fileSet>
+
+		<fileSet>
+			<directory>${project.basedir}/src/main/bin</directory>
+			<outputDirectory>bin</outputDirectory>
+			<includes>
+				<include>*.sh</include>
+			</includes>
+		</fileSet>
 
 		<!-- 把项目的脚本文件（除了启动脚本文件），打包进zip文件的script目录 -->
 		<fileSet>
@@ -54,6 +82,10 @@
 			<includes>
 				<include>*.jar</include>
 			</includes>
+			<excludes>
+				<exclude>spark*.jar</exclude>
+				<exclude>javax.servlet*.jar</exclude>
+			</excludes>
 		</fileSet>
 	</fileSets>
 </assembly>

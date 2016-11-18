@@ -28,12 +28,12 @@ public class MainTest {
         //wordFilterMy.deleteEs();
         //String word = new String("0106658.cn".getBytes(),"UTF-8");
         //wordFilterMy.searchWord(word);
-        // wordFilterMy.fileCreateIndex();
+        wordFilterMy.fileCreateIndex();
         wordFilterMy.createIndex("彩宝我试试");
         wordFilterMy.searchWord("彩宝");
        // boolean result = wordFilterMy.deleteEs("彩宝我试试");
         //System.out.println(result);
-        wordFilterMy.getEs();
+        //wordFilterMy.getEs();
         //wordFilterMy.searchWord("woe");
         //wordFilterMy.createIndex("woe2");
         //wordFilterMy.createIndex("3344");

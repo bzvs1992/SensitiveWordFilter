@@ -44,7 +44,7 @@ public class StormFilter {
     public static void main(String[] args) throws Exception {
         Conf conf = new Conf();
         String topic = conf.getTopic();
-        String[] zkServers = conf.getZkServers().split(";");
+        String[] zkServers = conf.getZkServers().split(",");
         List<String> zkHosts = null;
         for(String zkServer:zkServers){
             String zkHost = zkServer.split(":")[0];

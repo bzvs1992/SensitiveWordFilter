@@ -21,7 +21,7 @@ public class Conf {
     private final static String ES_CLUSTER_NAME = "cluster.name";
 
     // ES 主机地址
-    private final static String ES_HOSTNAME = "hostnameEs";
+    private final static String ES_HOSTNAME = "es.node";
     // ES 默认通信端口
     private final static int ES_PORT = 9300;
 
@@ -55,25 +55,25 @@ public class Conf {
     private final static String REDIS_HOSTS = "redis.servers";
 
     // RabbitMQ host
-    private final static String RABBITMQ_HOST = "RabbitMQ.host";
+    private final static String RABBITMQ_HOST = "rabbitMQ.host";
 
     //RabbitMQ port
-    private final static String RABBITMQ_PORT = "RabbitMQ.port";
+    private final static String RABBITMQ_PORT = "rabbitMQ.port";
 
     // RabbitMQ username
-    private final static String RABBITMQ_USERNAME = "RabbitMQ.username";
+    private final static String RABBITMQ_USERNAME = "rabbitMQ.username";
     // RabbitMQ password
-    private final static String RABBITMQ_PASSWORD = "RabbitMQ.password";
+    private final static String RABBITMQ_PASSWORD = "rabbitMQ.password";
     // RabbitMQ virtualHost
-    private final static String RABBITMQ_VIRTUAL_HOST = "RabbitMQ.virtualHost";
+    private final static String RABBITMQ_VIRTUAL_HOST = "rabbitMQ.virtualHost";
     // RabbitMQ 消息队列名称打算进行文本过滤的消息流
-    private final static String RABBITMQ_QUEUE_NAME = "RabbitMQ.queue.name";
+    private final static String RABBITMQ_QUEUE_NAME = "rabbitMQ.queue.name";
     // RabbitMQ 经过文本过滤后输出的消息流
-    private final static String RABBITMQ_PRODUCER_NAME = "RabbitMQ.producer.name";
+    private final static String RABBITMQ_PRODUCER_NAME = "rabbitMQ.producer.name";
     // 定义文本数据在json结构体中的位置
-    private final static String JSON_TEXT = "Json.text";
+    private final static String JSON_TEXT = "json.text";
     // 输出到队列指定的exchange，这个不能为空
-    private final static String RABBITMQ_EXCHANGE_NAME = "RabbitMQ.exchange.name";
+    private final static String RABBITMQ_EXCHANGE_NAME = "rabbitMQ.exchange.name";
 
     private Logger loggers;
 

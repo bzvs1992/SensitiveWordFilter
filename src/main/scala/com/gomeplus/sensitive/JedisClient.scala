@@ -11,7 +11,7 @@ object JedisClient extends Serializable{
 
   def getJedisCluster(): JedisCluster ={
     val config = new Conf
-    val redisHost = config.getRedisHosts.split(";")
+    val redisHost = config.getRedisHosts.split(",")
     // 获取redis地址
     val jedisClusterNodes = new java.util.HashSet[HostAndPort]()
     redisHost.foreach(x=>{

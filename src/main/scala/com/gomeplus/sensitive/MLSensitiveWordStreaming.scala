@@ -25,10 +25,13 @@ object MLSensitiveWordStreaming {
   val ikMain = "ik_main"
   // 生成es 连接
   val config = new Conf
-  val esHostname = config.getEsHostname
+  val esHostNames: Array[String] = config.getEsHostname.split(",")
+  loggers.debug(esHostNames.toString)
   val clusterName: String = config.getEsClusterName
   var inetSocketAddress: InetSocketAddress = null
-  for (hostname <- esHostname.split(",")) {
+  for (eshostname <- esHostNames) {
+    val hostname = eshostname.split(":")(0)
+    loggers.info(hostname)
     inetSocketAddress = new InetSocketAddress(hostname, 9300)
   }
   val settings: Settings = Settings.settingsBuilder.put("cluster.name", clusterName).build
@@ -45,7 +48,7 @@ object MLSensitiveWordStreaming {
     conf.set("es.index.auto.create", "true")
 
     val sparkConf = new SparkConf().setAppName("KafkaWordCount")
-    sparkConf.set("es.nodes",esHostname)
+    sparkConf.set("es.nodes",config.getEsHostname)
     val sc = new SparkContext(sparkConf)
     // 创建sparksql
 
