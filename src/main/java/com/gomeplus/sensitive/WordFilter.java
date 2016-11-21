@@ -25,9 +25,8 @@ import org.elasticsearch.common.xcontent.XContentBuilder;
 
 import java.io.*;
 import java.net.*;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 import org.elasticsearch.index.IndexNotFoundException;
 import org.elasticsearch.index.query.QueryBuilder;
@@ -103,27 +102,47 @@ public class WordFilter {
      * 创建Es索引,id自动添加
      *
      * @param str 敏感词
+     * @return
+     * 0: 单词已存在
+     * 1：创建成功
+     * 2：创建失败
      */
-    public void createIndex(String str) {
+    public int createIndex(String str) {
+        int result = 2;
         if (!str.isEmpty()) {
             //创建数据内容
             try {
-                String word = new String(str.getBytes("UTF-8"), CHARSET);
-                XContentBuilder builder = jsonBuilder()
-                        .startObject()
-                        .field("word", word)
-                        .endObject();
-                //创建es索引
-                IndexResponse response = client.prepareIndex(GOME, WORD).setSource(builder).get();
-                // 持久化到ik库，当重启时能继续加载已更新热词
-                jc.sadd(ikMain, word);
-                // 添加redid订阅内，完成热词更新操作
-                jc.publish(ikMain,word);
-                loggers.info(response.getId() + "   index: " + response.getIndex() + " word:  " + word);
+                // 先查询这个词是否讯在，如果不存在则创建
+                String exitSensitiveWord = searchWord(str);
+                if (null == exitSensitiveWord) {
+                    String word = new String(str.getBytes("UTF-8"), CHARSET);
+                    XContentBuilder builder = jsonBuilder()
+                            .startObject()
+                            .field("word", word)
+                            .endObject();
+                    //创建es索引
+                    IndexResponse response = client.prepareIndex(GOME, WORD).setSource(builder).get();
+                    if (response.isCreated()) {
+                        loggers.info(response.getId() + "   index: " + response.getIndex() + " word:  " + word);
+                        // 持久化到ik库，当重启时能继续加载已更新热词
+                        jc.sadd(ikMain, word);
+                        // 添加redid订阅内，完成热词更新操作
+                        jc.publish(ikMain, word);
+                        result = 1;
+                    } else {
+                        result = 2;
+                        loggers.info("This word is not exist");
+                    }
+                }else{
+                   result = 0;
+                }
+
             } catch (Exception e) {
-                e.printStackTrace();
+                loggers.info(e.toString());
+                result = 2;
             }
         }
+        return result;
     }
 
     /**
@@ -148,10 +167,7 @@ public class WordFilter {
                         while ((tempString = reader.readLine()) != null) {
                             String word = tempString.trim();
                             //一行创建一个敏感词的的索引,如果敏感词库中已经包含该词，则不再继续创建索引
-                            String exitSensitiveWord = searchWord(word);
-                            if (null == exitSensitiveWord) {
-                                createIndex(word);
-                            }
+                            createIndex(word);
                         }
                         isr.close();
                         fis.close();
@@ -170,7 +186,7 @@ public class WordFilter {
      * 搜索ES关键词
      *
      * @param str 被搜索的词
-     * @return 如果存在敏感词，返回true，否则返回false
+     * @return 如果存在敏感词 返回敏感词的id
      */
     public String searchWord(String str) {
         //如果查询字符不为空
@@ -208,11 +224,11 @@ public class WordFilter {
      * 查询词某个单词
      *
      * @param str  待查询的词
-     * @return 如果正常返回SearchHits，否则返回null
+     * @return 返回键值对，<word, id>
      * */
-    public SearchHits searchAllWord(String str) {
+    public ConcurrentHashMap<String,String> searchAllWord(String str) {
         //如果查询字符不为空
-        SearchHits result = null;
+        ConcurrentHashMap result = new ConcurrentHashMap<String,String>();
         if (str != null & !str.isEmpty()) {
             try {
                 // 直接使用termQuery 无法查询中文
@@ -223,7 +239,12 @@ public class WordFilter {
                 SearchHits hits = response.getHits();
                 //如果搜索到关键词，那么就意味着这个词是敏感词
                 if (hits.totalHits() > 0) {
-                   result = hits;
+                    for (SearchHit hit : hits) {
+                        String word = hit.getSource().get("word").toString();
+                        String id = hit.getId();
+                        // 如果查找到立刻返回，不在做过多的判断
+                        result.put(word,id);
+                    }
                 }
             } catch (IndexNotFoundException e) {
                 e.printStackTrace();
@@ -287,7 +308,7 @@ public class WordFilter {
      * 删除ES整个索引库,即删除整个库
      * @param indexName  索引库名称
      * */
-    public boolean deleteEsIndex(String indexName){
+    public boolean deleteEsIndexALL(String indexName){
         boolean deleteRequest = true;
         // 判断index是否存在
         IndicesExistsRequest inExistsRequest = new IndicesExistsRequest(indexName);
@@ -303,23 +324,43 @@ public class WordFilter {
     }
 
     /**
-     * 删除Es指定数据，目前测试不成功
-     * @param id  ID名称
+     * 删除Es指定数据，这里需要在所一次查询
+     * @param str  str
+     * @return  删除成功true，删除失败false
      */
-    public boolean deleteEs(String id) {
+    public boolean deleteEs(String str) {
         boolean deleteRequest = false;
-        if(null != id){
-            String isExitWordID = searchWord(id);
+        if(null != str){
+            String isExitWordID = searchWord(str);
             if(null!=isExitWordID){
                 DeleteResponse dResponse = client.prepareDelete(GOME, WORD, isExitWordID).execute().actionGet();
-                loggers.info("Delete Es ID :" + id + " " + dResponse.isFound());
+                loggers.info("Delete Es ID :" + str + " " + dResponse.isFound());
                 deleteRequest = dResponse.isFound();
                 //删除redis 集合中敏感词词词典
-                jc.srem(ikMain,id);
+                jc.srem(ikMain,str);
             }
         }
         return  deleteRequest;
     }
+
+    /**
+     * 删除Es中指定数据，这里需要知道word所在的id
+     * @param id  指定word的id
+     * @return  删除成功true，删除失败false
+     */
+    public boolean deleteEsWordId(String id) {
+        boolean deleteRequest = false;
+        if(null != id){
+            DeleteResponse dResponse = client.prepareDelete(GOME, WORD, id).execute().actionGet();
+            loggers.info("Delete Es ID :" + id + " " + dResponse.isFound());
+            deleteRequest = dResponse.isFound();
+                //删除redis 集合中敏感词词词典
+            jc.srem(ikMain,id);
+            }
+        return  deleteRequest;
+    }
+
+
 
     /**
      * 将text转换成json格式，并从中获取文本信息

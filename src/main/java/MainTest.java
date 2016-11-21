@@ -1,8 +1,12 @@
 import com.gomeplus.sensitive.WordFilter;
 import org.elasticsearch.index.analysis.IkAnalyzerProvider;
+import org.elasticsearch.search.SearchHit;
+import org.elasticsearch.search.SearchHits;
 import org.wltea.analyzer.dic.Dictionary;
 
 import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Created by wangxiaojing on 2016/9/22.
@@ -25,18 +29,15 @@ public class MainTest {
 
         //Dictionary.getSingleton().addStopWords(words);
         //wordFilterMy.semanticAnalysis("眼角膜亚硝酰乙氧亚硒酸二钠求肾，妈妈不喜欢吃肉,出售手枪出售炸弹出售冰毒");
-        //wordFilterMy.deleteEs();
-        //String word = new String("0106658.cn".getBytes(),"UTF-8");
-        //wordFilterMy.searchWord(word);
-        wordFilterMy.fileCreateIndex();
-        wordFilterMy.createIndex("彩宝我试试");
-        wordFilterMy.searchWord("彩宝");
-       // boolean result = wordFilterMy.deleteEs("彩宝我试试");
-        //System.out.println(result);
-        //wordFilterMy.getEs();
-        //wordFilterMy.searchWord("woe");
-        //wordFilterMy.createIndex("woe2");
-        //wordFilterMy.createIndex("3344");
-       // wordFilterMy.getIndex();
+        //wordFilterMy.fileCreateIndex();
+        int i = wordFilterMy.createIndex("彩宝我试试");
+        System.out.println("return is " + i);
+        ConcurrentHashMap<String,String> searchHits = wordFilterMy.searchAllWord("彩宝我试试");
+        System.out.println(searchHits.toString());
+        boolean result = wordFilterMy.deleteEs("彩宝我试试");
+        System.out.println(result);
+
+        boolean result1 = wordFilterMy.deleteEsWordId("AViEy4wicawEBYnALN9Q");
+        System.out.println(result1);
     }
 }
