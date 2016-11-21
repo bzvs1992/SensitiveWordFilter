@@ -9,11 +9,7 @@ import io.latent.storm.rabbitmq.config.*;
 import org.apache.storm.Config;
 import org.apache.storm.LocalCluster;
 import org.apache.storm.StormSubmitter;
-import org.apache.storm.kafka.*;
-import org.apache.storm.kafka.bolt.KafkaBolt;
-import org.apache.storm.kafka.bolt.selector.DefaultTopicSelector;
 import org.apache.storm.spout.Scheme;
-import org.apache.storm.spout.SchemeAsMultiScheme;
 import org.apache.storm.topology.TopologyBuilder;
 import org.apache.storm.tuple.Fields;
 import org.apache.storm.tuple.Tuple;
@@ -74,7 +70,7 @@ public class StormRabbitFilter {
                 .addConfigurations(spoutConfig.asMap()).setMaxSpoutPending(200);
 
         //将过滤的数据输出命名为SENSITIVE_FILTER的的bolt中
-        builder.setBolt(SENSITIVE_FILTER, new SensitiveWordBolt()).shuffleGrouping(RABBIT_SPOUT_ID);
+        builder.setBolt(SENSITIVE_FILTER, new SensitiveWordKafkaBolt()).shuffleGrouping(RABBIT_SPOUT_ID);
 
 
         TupleToMessage schemeT = new TupleToMessageNonDynamic() {
@@ -135,8 +131,8 @@ class MyCustomMessageScheme implements Scheme {
             e.printStackTrace();
         }
         //  返回UUID,String,Number
-        objs.add(UUID.randomUUID().toString());
         objs.add(str);
+        objs.add(UUID.randomUUID().toString());
         String numStr = Math.round(Math.random() * 8999 + 1000) + "";
         objs.add(numStr);
 

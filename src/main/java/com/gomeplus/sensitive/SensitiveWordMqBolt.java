@@ -17,9 +17,9 @@ import java.util.Map;
 /**
  * Created by wangxiaojing on 2016/9/29.
  */
-public class SensitiveWordBolt extends BaseRichBolt {
+public class SensitiveWordMqBolt extends BaseRichBolt {
 
-    private Logger loggers =  LoggerFactory.getLogger(SensitiveWordBolt.class);
+    private Logger loggers =  LoggerFactory.getLogger(SensitiveWordMqBolt.class);
 
     private OutputCollector collector;
 
@@ -31,24 +31,27 @@ public class SensitiveWordBolt extends BaseRichBolt {
         return  wordFilter ==null ? (wordFilter = new WordFilter()): wordFilter;
     }
     public void execute(Tuple tuple) {
-        String text = tuple.getString(1);
-        getWordFilter();
-        String content = wordFilter.getText(text);
-        JSONObject jsonObject = JSON.parseObject(new String(text.toString()));
-        if(null != content ){
-            loggers.info(content);
-            boolean textIsSensitive = wordFilter.semanticAnalysis(content);
-            // 如果这句话不含有敏感词汇
-            if(!textIsSensitive){
-                jsonObject.put(IS_SENSITIVE, false);
+        if(tuple.size()>0){
+            String text = tuple.getString(0);
+            getWordFilter();
+            String content = wordFilter.getText(text);
+            JSONObject jsonObject = JSON.parseObject(new String(text.toString()));
+            if(null != content ){
+                loggers.info(content);
+                boolean textIsSensitive = wordFilter.semanticAnalysis(content);
+                // 如果这句话不含有敏感词汇
+                if(!textIsSensitive){
+                    jsonObject.put(IS_SENSITIVE, false);
+                }else{
+                    jsonObject.put(IS_SENSITIVE, true);
+                }
             }else{
-                jsonObject.put(IS_SENSITIVE, true);
+                jsonObject.put(IS_SENSITIVE, false);
             }
-        }else{
-            jsonObject.put(IS_SENSITIVE, false);
+            String resultText = jsonObject.toString();
+            collector.emit(tuple,new Values(resultText));
         }
-        String resultText = jsonObject.toString();
-        collector.emit(tuple,new Values(resultText));
+
     }
 
     public void prepare(Map arg0, TopologyContext arg1, OutputCollector collector) {
