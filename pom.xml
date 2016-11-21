@@ -15,7 +15,7 @@
         <storm-kafka>1.0.1</storm-kafka>
         <kafka.version>0.8.1</kafka.version>
         <hadoop-two.version>2.6.0</hadoop-two.version>
-        <scala.version>2.10.3</scala.version>
+        <scala.version>2.10.5</scala.version>
     </properties>
 
     <dependencies>

@@ -13,10 +13,8 @@
 			<outputDirectory>lib</outputDirectory>
 			<unpack>false</unpack>
 			<excludes>
-				<exclude>spark:spark</exclude>
-				<exclude>spark-streaming-kafka_2.10:spark-streaming-kafka_2.10:*</exclude>
-				<exclude>spark-mllib_2.10:spark-mllib_2.10:*</exclude>
-				<exclude>spark-core_2.10:spark-core_2.10:*</exclude>
+				<exclude>org.apache.spark:spark-sql_2.10</exclude>
+				<exclude>org.eclipse.jetty.orbit:javax.servlet</exclude>
 			</excludes>
 		</dependencySet>
 	</dependencySets>
