@@ -42,8 +42,8 @@
 			</includes>
 		</fileSet>
 		<fileSet>
-			<directory>${project.basedir}/sensitiveWordData/word</directory>
-			<outputDirectory>sensitiveWordData/word</outputDirectory>
+			<directory>${project.basedir}/sensitiveWordData</directory>
+			<outputDirectory>sensitiveWordData</outputDirectory>
 			<includes>
 				<include>*</include>
 			</includes>

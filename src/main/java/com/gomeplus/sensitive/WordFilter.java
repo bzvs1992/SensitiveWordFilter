@@ -49,7 +49,7 @@ public class WordFilter {
 
     private final static String GOME = "gome";
 
-    private final static String DATA_DIR = "sensitiveWordData/word";
+    private final static String DATA_DIR = "sensitiveWordData";
 
     private final static String CHARSET = "UTF-8";
 
