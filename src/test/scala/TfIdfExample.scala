@@ -1,7 +1,6 @@
 
-import org.apache.spark.SparkContext
-import org.apache.spark.ml.feature.{IDF, Tokenizer, HashingTF}
-import org.apache.spark.SparkConf
+import org.apache.spark.{SparkConf, SparkContext}
+import org.apache.spark.ml.feature.{HashingTF, IDF, Tokenizer}
 import org.apache.spark.sql.SQLContext
 
 object TfIdfExample {
