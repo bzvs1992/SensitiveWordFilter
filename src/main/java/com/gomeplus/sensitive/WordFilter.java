@@ -367,7 +367,7 @@ public class WordFilter {
      * */
     public String getText(String text){
         if(null != text){
-            JSONObject jsonObject = JSON.parseObject(new String(text.toString()));
+            JSONObject jsonObject = JSON.parseObject(text);
             String[] jsonText = conf.getJsonText().split(",");
             int size = jsonText.length;
             for(int i = 0 ; i <= size -2 ;i++){

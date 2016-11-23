@@ -2,6 +2,7 @@ package com.gomeplus.sensitive
 
 import java.net.InetSocketAddress
 
+import com.alibaba.fastjson.JSON
 import com.gomeplus.util.Conf
 import org.apache.spark.ml.classification.NaiveBayesModel
 import org.apache.spark.ml.feature.{HashingTF, IDF}
@@ -40,6 +41,7 @@ object MLSensitiveWordStreaming {
   val zkQuorum = config.getZkServers
   val topics = config.getTopic
   val numThreads = config.getStreamingNumThreads
+  val jsonText = config.getJsonText.split(",")
 
   def main(args: Array[String]) {
 
@@ -57,12 +59,17 @@ object MLSensitiveWordStreaming {
     val ssc = new StreamingContext(sc, Seconds(20))
     //ssc.checkpoint("checkpoint")
     val topicMap = topics.split(",").map((_, numThreads.toInt)).toMap
-    val lines = KafkaUtils.createStream(ssc, zkQuorum, "SensitiveFilter", topicMap).map(_._2)
-
+    val lines = KafkaUtils.createStream(ssc, zkQuorum, "SensitiveFilter", topicMap).map(_._2).filter(_.size>0)
 
     // 通过流获取的数据作为测试数据使用
     val words = lines.map(x=>{
-      x.replace("@","").replace("?",
+      var jsonObject = JSON.parseObject(x)
+      for(i<- 0 to jsonText.size-2){
+        jsonObject = jsonObject.getJSONObject(jsonText(i))
+      }
+      val text = jsonObject.getString(jsonText.last)
+      loggers.debug("input text is : " + text)
+      text.replace("@","").replace("?",
         "").replace("!",
         "").replace("//",
         "").replace("\\",
@@ -109,17 +116,24 @@ object MLSensitiveWordStreaming {
 
       val out = data.map(word=>{
         val jedisCluster = JedisClient.getJedisCluster()
-        jedisCluster.sadd(ikMain,word)
-        jedisCluster.publish(ikMain,word)
-        loggers.debug("word is: " + word)
-        ("word",word)
-      })
+        val reply = jedisCluster.sadd(ikMain,word)
+        if(reply == 1){
+          jedisCluster.publish(ikMain,word)
+        }
+        (reply,word)
+      }).filter(x=>x._1 == 1).map(word=>{
+        //loggers.debug("sensitiveword is: " + word._2)
+        ("word",word._2)})
       //将新的敏感词存入ES
       out.saveToEs("gome/word")
       out
     })
 
     train.print()
+    lines.transform(x=>{
+      x.saveAsTextFile(topics)
+      x
+    }).print()
     ssc.start()
     ssc.awaitTermination()
   }
