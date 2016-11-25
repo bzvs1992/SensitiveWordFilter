@@ -32,12 +32,15 @@ public class SensitiveWordKafkaBolt extends BaseRichBolt {
     }
     public void execute(Tuple tuple) {
         if(tuple.size()>0){
-            Fields fields = new Fields("key", "message");
             String text = tuple.getString(0);
             getWordFilter();
             String content = wordFilter.getText(text);
+            if(null != content){
+                collector.emit(tuple,new Values("word",content));
+            }
+            /*
             JSONObject jsonObject = JSON.parseObject(new String(text.toString()));
-            if(null != content ){
+            if(null != content && null != jsonObject ){
                 loggers.info(content);
                 boolean textIsSensitive = wordFilter.semanticAnalysis(content);
                 // 如果这句话不含有敏感词汇
@@ -46,13 +49,11 @@ public class SensitiveWordKafkaBolt extends BaseRichBolt {
                 }else{
                     jsonObject.put(IS_SENSITIVE, true);
                 }
-            }else{
-                jsonObject.put(IS_SENSITIVE, false);
-            }
-            String resultText = jsonObject.toString();
-            collector.emit(tuple,new Values("key",resultText));
+                String resultText = jsonObject.toString();
+                collector.emit(tuple,new Values("word",resultText));
+            }*/
         }
-
+        this.collector.ack(tuple);
     }
 
     public void prepare(Map arg0, TopologyContext arg1, OutputCollector collector) {
@@ -60,6 +61,6 @@ public class SensitiveWordKafkaBolt extends BaseRichBolt {
     }
 
     public void declareOutputFields(OutputFieldsDeclarer declarer) {
-        declarer.declare(new Fields("text"));
+        declarer.declare(new Fields("key", "message"));
     }
 }

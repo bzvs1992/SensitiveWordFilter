@@ -35,8 +35,10 @@ public class SensitiveWordMqBolt extends BaseRichBolt {
             String text = tuple.getString(0);
             getWordFilter();
             String content = wordFilter.getText(text);
-            JSONObject jsonObject = JSON.parseObject(new String(text.toString()));
-            if(null != content ){
+            if(!content.isEmpty() ) {
+                collector.emit(tuple, new Values(content));
+            }
+                /*
                 loggers.info(content);
                 boolean textIsSensitive = wordFilter.semanticAnalysis(content);
                 // 如果这句话不含有敏感词汇
@@ -48,10 +50,10 @@ public class SensitiveWordMqBolt extends BaseRichBolt {
             }else{
                 jsonObject.put(IS_SENSITIVE, false);
             }
-            String resultText = jsonObject.toString();
-            collector.emit(tuple,new Values(resultText));
-        }
-
+            //String resultText = jsonObject.toString();
+            collector.emit(tuple,new Values(resultText));*/
+            }
+        collector.ack(tuple);
     }
 
     public void prepare(Map arg0, TopologyContext arg1, OutputCollector collector) {

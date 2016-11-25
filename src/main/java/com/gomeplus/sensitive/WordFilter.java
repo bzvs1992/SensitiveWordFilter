@@ -57,6 +57,8 @@ public class WordFilter {
 
     private final static String ikMain = "ik_main";
 
+    private static final String  IS_SENSITIVE = "isSensitive";
+
     //创建Es客户端
     private static TransportClient client;
 
@@ -366,17 +368,41 @@ public class WordFilter {
      * 将text转换成json格式，并从中获取文本信息
      * */
     public String getText(String text){
+        String sensitiveResult = null;
         if(null != text){
-            JSONObject jsonObject = JSON.parseObject(text);
-            String[] jsonText = conf.getJsonText().split(",");
-            int size = jsonText.length;
-            for(int i = 0 ; i <= size -2 ;i++){
-                jsonObject = jsonObject.getJSONObject(jsonText[i]);
+            loggers.debug("text is:" + text);
+            try{
+                JSONObject jsonObject =  JSONObject.parseObject(text);
+                String[] jsonText = conf.getJsonText().split(",");
+                int size = jsonText.length;
+                if(null != jsonObject) {
+                    JSONObject jsonObjectContext = jsonObject;
+                    for (int i = 0; i <= size - 2; i++) {
+                        if (jsonObjectContext.containsKey(jsonText[i])) {
+                            jsonObjectContext = jsonObjectContext.getJSONObject(jsonText[i]);
+                        }else{
+                            loggers.error("The json is not legal,{}",jsonText[i]);
+                        }
+                    }
+                    if (jsonObjectContext.containsKey(jsonText[size - 1])) {
+                        String sensitiveCheck = jsonObjectContext.getString(jsonText[size - 1]);
+                        boolean textIsSensitive = semanticAnalysis(sensitiveCheck);
+                        // 如果这句话不含有敏感词汇
+                        if(!textIsSensitive){
+                            jsonObject.put(IS_SENSITIVE, false);
+                        }else{
+                            jsonObject.put(IS_SENSITIVE, true);
+                        }
+                        sensitiveResult = jsonObject.toJSONString();
+                    }else {
+                        loggers.error("The json is not legal,{}",jsonText[size - 1]);
+                    }
+                }
+            }catch (Exception e){
+                e.printStackTrace();
             }
-            String sensitiveCheck = jsonObject.getString(jsonText[size-1]);
-            return sensitiveCheck;
         }
-        return  null;
+       return sensitiveResult;
     }
 
     public void getEs(){

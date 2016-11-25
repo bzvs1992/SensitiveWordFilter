@@ -64,9 +64,8 @@ public class StormKafkaFilter {
         //从kafka的消息队里获取数据到KAFKA_SPOUT_ID内
         builder.setSpout(KAFKA_SPOUT_ID, new KafkaSpout(spoutConf), 1);
         //将过滤的数据输出命名为SENSITIVE_FILTER的的bolt中
-        builder.setBolt(SENSITIVE_FILTER, new SensitiveWordMqBolt()).shuffleGrouping(KAFKA_SPOUT_ID);
+        builder.setBolt(SENSITIVE_FILTER, new SensitiveWordKafkaBolt()).shuffleGrouping(KAFKA_SPOUT_ID);
         // 创建kafka bolt 将数据发送到kafka
-
         // 设置producer配置
         Properties props = new Properties();
         props.put("bootstrap.servers", conf.getBootstrapServers());
@@ -75,23 +74,21 @@ public class StormKafkaFilter {
         props.put("value.serializer", "org.apache.kafka.common.serialization.StringSerializer");
         KafkaBolt bolt = new KafkaBolt()
                 .withProducerProperties(props)
+                .withTupleToKafkaMapper(new FieldNameBasedTupleToKafkaMapper())
                 .withTopicSelector(new DefaultTopicSelector(conf.getStormToKafkaTopic()));
-        bolt.withTupleToKafkaMapper(new FieldNameBasedTupleToKafkaMapper("key","text"));
+
         // 将bolt产生的数据 输出数据到kafka
         //管道名称SEND_TO_KAFKA
         builder.setBolt(SEND_TO_KAFKA,bolt,1).shuffleGrouping(SENSITIVE_FILTER);
         // 设置storm 的配置
         Config config = new Config();
-
-        config.put("kafka.broker.properties", props);
-
         String name = conf.getStormName();
         if (args != null && args.length > 0) {
             config.put(Config.NIMBUS_HOST, args[0]);
-            config.setNumWorkers(3);
+            config.setNumWorkers(1);
             StormSubmitter.submitTopologyWithProgressBar(name, config, builder.createTopology());
         } else {
-            config.setMaxTaskParallelism(3);
+            config.setMaxTaskParallelism(1);
             LocalCluster cluster = new LocalCluster();
             cluster.submitTopology(name, config, builder.createTopology());
             Thread.sleep(60000);
