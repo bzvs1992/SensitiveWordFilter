@@ -16,6 +16,7 @@ import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.transport.InetSocketTransportAddress
 import org.elasticsearch.spark._
 import org.slf4j.LoggerFactory
+import scalaj.http.Http
 
 /**
  * Created by wangxiaojing on 16/11/3.
@@ -28,16 +29,7 @@ object MLSensitiveWordStreaming {
   val config = new Conf
   val esHostNames: Array[String] = config.getEsHostname.split(",")
   loggers.debug(esHostNames.toString)
-  val clusterName: String = config.getEsClusterName
-  var inetSocketAddress: InetSocketAddress = null
-  for (eshostname <- esHostNames) {
-    val hostname = eshostname.split(":")(0)
-    loggers.info(hostname)
-    inetSocketAddress = new InetSocketAddress(hostname, 9300)
-  }
-  val settings: Settings = Settings.settingsBuilder.put("cluster.name", clusterName).build
-  val client: TransportClient = TransportClient.builder.settings(settings).
-    build.addTransportAddress(new InetSocketTransportAddress(inetSocketAddress))
+  val url = "http://"+ esHostNames(0) + "/_analyze"
   val zkQuorum = config.getZkServers
   val topics = config.getTopic
   val numThreads = config.getStreamingNumThreads
@@ -46,17 +38,15 @@ object MLSensitiveWordStreaming {
   def main(args: Array[String]) {
 
     // 创建spark项目
-    val conf = new SparkConf().setAppName("MLSensitiveWord")
-    conf.set("es.index.auto.create", "true")
-
-    val sparkConf = new SparkConf().setAppName("KafkaWordCount")
+    val sparkConf = new SparkConf()
     sparkConf.set("es.nodes",config.getEsHostname)
+    sparkConf.set("es.index.auto.create", "true")
     val sc = new SparkContext(sparkConf)
     // 创建sparksql
 
     val sqlContext = new SQLContext(sc)
     // 流数据计算
-    val ssc = new StreamingContext(sc, Seconds(20))
+    val ssc = new StreamingContext(sc, Seconds(10))
     //ssc.checkpoint("checkpoint")
     val topicMap = topics.split(",").map((_, numThreads.toInt)).toMap
     val lines = KafkaUtils.createStream(ssc, zkQuorum, "SensitiveFilter", topicMap).map(_._2).filter(_.size>0)
@@ -77,21 +67,16 @@ object MLSensitiveWordStreaming {
         "").trim
     }).filter(_.length>0)
       .flatMap(x=>{
-      val analyzeResponse: AnalyzeResponse = client.admin.indices
-        .prepareAnalyze(x).setAnalyzer("ik_smart").execute.actionGet
-      val actual  = analyzeResponse.getTokens
-      var sensitiveWordList = List(actual.get(0).getTerm)
-      val size = actual.size()
-      for(i<- 1 to size - 1){
-        val now = actual.get(i).getTerm
-        val before = actual.get(i - 1).getTerm.concat(now)
-        sensitiveWordList = now :: before ::sensitiveWordList
-        if(i < size -1 ){
-          val after = before.concat(actual.get(i+1).getTerm)
-          sensitiveWordList = after ::sensitiveWordList
+        val result = Http(url)
+          .param("pretty","true")
+          .param("analyzer","ik_smart")
+          .param("text",x)
+          .asString.body
+        val actual = JSON.parseObject(result).getJSONArray("tokens")
+        var sensitiveWordList = List(new String)
+        for(i<- 0 until  actual.size()){
+          sensitiveWordList = actual.getString(i) ::sensitiveWordList
         }
-
-      }
       //println("word is " + sensitiveWordList)
       sensitiveWordList
     }).map(x=>{(Seq(x),0.0)})

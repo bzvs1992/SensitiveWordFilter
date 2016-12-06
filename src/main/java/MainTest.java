@@ -1,8 +1,6 @@
 import com.gomeplus.sensitive.WordFilter;
-import org.elasticsearch.index.analysis.IkAnalyzerProvider;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.SearchHits;
-import org.wltea.analyzer.dic.Dictionary;
 
 import java.util.ArrayList;
 import java.util.List;

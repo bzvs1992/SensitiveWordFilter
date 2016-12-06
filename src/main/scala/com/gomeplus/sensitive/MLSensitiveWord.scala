@@ -2,6 +2,7 @@ package com.gomeplus.sensitive
 
 import java.net.InetSocketAddress
 
+import com.alibaba.fastjson.JSON
 import com.gomeplus.util.Conf
 import org.apache.hadoop.fs.Path
 import org.apache.spark.{SparkConf, SparkContext}
@@ -14,6 +15,9 @@ import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.transport.InetSocketTransportAddress
 import org.elasticsearch.spark._
 import org.slf4j.LoggerFactory
+
+import scalaj.http.Http
+
 /**
  * Created by wangxiaojing on 16/10/24.
  */
@@ -29,18 +33,7 @@ object MLSensitiveWord {
   val config = new Conf
   val esHostNames: Array[String] = config.getEsHostname.split(",")
   loggers.debug(esHostNames.toString)
-  val clusterName: String = config.getEsClusterName
-  var inetSocketAddress: InetSocketAddress = null
-  for (eshostname <- esHostNames) {
-    val hostname = eshostname.split(":")(0)
-    loggers.info(hostname)
-    inetSocketAddress = new InetSocketAddress(hostname, 9300)
-  }
-  val settings: Settings = Settings.settingsBuilder.put("cluster.name", clusterName).build
-  val client: TransportClient = TransportClient.builder.settings(settings).
-    build.addTransportAddress(new InetSocketTransportAddress(inetSocketAddress))
-
-
+  val url = "http://"+ esHostNames(0) + "/_analyze"
   def main (args: Array[String]){
 
     val conf = new SparkConf().setAppName("MLSensitiveWord")
@@ -77,12 +70,15 @@ object MLSensitiveWord {
         "").trim
     })
     val unSensitiveWords = unSensitiveWordLine.filter(_.size>0).flatMap(x=>{
-      val analyzeResponse: AnalyzeResponse = client.admin.indices
-        .prepareAnalyze(x).setAnalyzer("ik_smart").execute.actionGet
-      val actual  = analyzeResponse.getTokens
-      var sensitiveWordList = List(actual.get(0).getTerm)
-      for(i<- 1 to actual.size() - 1){
-        sensitiveWordList = actual.get(i).getTerm ::sensitiveWordList
+      val result = Http(url)
+        .param("pretty","true")
+        .param("analyzer","ik_smart")
+        .param("text",x)
+        .asString.body
+      val actual = JSON.parseObject(result).getJSONArray("tokens")
+      var sensitiveWordList = List(new String)
+      for(i<- 0 to actual.size() - 1){
+        sensitiveWordList = actual.getString(i) ::sensitiveWordList
       }
       sensitiveWordList
     }).distinct(10)
