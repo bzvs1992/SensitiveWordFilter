@@ -1,5 +1,3 @@
-package com.gomeplus.sensitive
-
 import com.gomeplus.util.Conf
 import org.apache.commons.pool2.impl.GenericObjectPoolConfig
 import redis.clients.jedis.{HostAndPort, JedisCluster}
@@ -12,6 +10,7 @@ object JedisTest {
   def main(args: Array[String]) {
 
       val config = new Conf
+     config.parse(args)
       val redisHost = config.getRedisHosts.split(";")
       // 获取redis地址
       val jedisClusterNodes = new java.util.HashSet[HostAndPort]()

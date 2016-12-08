@@ -34,11 +34,11 @@ object Word2verSensitiveWordModel {
     build.addTransportAddress(new InetSocketTransportAddress(inetSocketAddress))
 
   def main (args: Array[String]){
-    val conf = new SparkConf().setAppName("MLSensitiveWord")
-    conf.set("es.index.auto.create", "true")
-
+    //命令行参数解析
+    conf.parse(args)
     val sparkConf = new SparkConf().setAppName("KafkaWordCount")
     sparkConf.set("es.nodes","wangxiaojingdeMacBook-Pro.local")
+    sparkConf.set("es.index.auto.create", "true")
     val sc = new SparkContext(sparkConf)
 
     //创建Dataframe

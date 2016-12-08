@@ -29,18 +29,19 @@ object MLSensitiveWord {
   // 敏感词的在redis中的主key
   val ikMain = "ik_main"
 
-  // 生成es 连接
-  val config = new Conf
-  val esHostNames: Array[String] = config.getEsHostname.split(",")
-  loggers.debug(esHostNames.toString)
-  val url = "http://"+ esHostNames(0) + "/_analyze"
   def main (args: Array[String]){
 
-    val conf = new SparkConf().setAppName("MLSensitiveWord")
-    conf.set("es.index.auto.create", "true")
-
-    val sparkConf = new SparkConf().setAppName("KafkaWordCount")
+    //参数解析
+    val config = new Conf
+    config.parse(args)
+    val esHostNames: Array[String] = config.getEsHostname.split(",")
+    loggers.debug(esHostNames.toString)
+    // 生成es 连接
+    val url = "http://"+ esHostNames(0) + "/_analyze"
+   // 创建sparkContext
+    val sparkConf = new SparkConf()
     sparkConf.set("es.nodes",config.getEsHostname)
+    sparkConf.set("es.index.auto.create", "true")
     val sc = new SparkContext(sparkConf)
 
     //创建Dataframe

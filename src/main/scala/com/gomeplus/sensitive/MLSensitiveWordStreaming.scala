@@ -25,17 +25,20 @@ object MLSensitiveWordStreaming {
 
   val loggers = LoggerFactory.getLogger("MLSensitiveWord Streaming")
   val ikMain = "ik_main"
-  // 生成es 连接
-  val config = new Conf
-  val esHostNames: Array[String] = config.getEsHostname.split(",")
-  loggers.debug(esHostNames.toString)
-  val url = "http://"+ esHostNames(0) + "/_analyze"
-  val zkQuorum = config.getZkServers
-  val topics = config.getTopic
-  val numThreads = config.getStreamingNumThreads
-  val jsonText = config.getJsonText.split(",")
 
   def main(args: Array[String]) {
+    // 参数解析
+    val config = new Conf()
+    config.parse(args)
+    val redisHost = config.getRedisHosts
+    val esHostNames: Array[String] = config.getEsHostname.split(",")
+    loggers.debug(esHostNames.toString)
+    // 生成es 连接
+    val url = "http://"+ esHostNames(0) + "/_analyze"
+    val zkQuorum = config.getZkServers
+    val topics = config.getTopic
+    val numThreads = config.getStreamingNumThreads
+    val jsonText = config.getJsonText.split(",")
 
     // 创建spark项目
     val sparkConf = new SparkConf()
@@ -100,7 +103,7 @@ object MLSensitiveWordStreaming {
       }
 
       val out = data.map(word=>{
-        val jedisCluster = JedisClient.getJedisCluster()
+        val jedisCluster = JedisClient.getJedisCluster(redisHost)
         val reply = jedisCluster.sadd(ikMain,word)
         if(reply == 1){
           jedisCluster.publish(ikMain,word)

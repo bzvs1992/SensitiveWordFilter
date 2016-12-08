@@ -7,7 +7,10 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.HashMap;
 import java.util.Properties;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Created by wangxiaojing on 2016/9/29.
@@ -75,11 +78,36 @@ public class Conf {
     // 输出到队列指定的exchange，这个不能为空
     private final static String RABBITMQ_EXCHANGE_NAME = "rabbitMQ.exchange.name";
 
+    private final static String STORM_SEEDS = "storm.seeds";
+
     private Logger loggers;
+
+    private HashMap<String,String> commendHashMap;
+
+    final static   String[][] opts = {
+            {"--"+ STORM_ID },
+            {"--" + STORM_NAME},
+            {"--" + STORM_TO_KAFKA_TOPIC},
+            {"--" + TOPIC },
+            {"--streaming.group"},
+            {"--" + RABBITMQ_QUEUE_NAME},
+            {"--" + RABBITMQ_VIRTUAL_HOST},
+            {"--" + RABBITMQ_PRODUCER_NAME},
+            {"--"+ RABBITMQ_EXCHANGE_NAME},
+            {"--"+ STORM_SEEDS}
+    };
+
+    final static String[][] switches = {
+            { "--help", "-h" },
+            { "--version", "-v" },
+    };
 
 
     public Conf(){
         loggers = LoggerFactory.getLogger(Conf.class);
+        // 命令行解析
+        commendHashMap = new HashMap<>();
+        // 通过配置文件
         try {
             properties = new Properties();
             InputStream inputStream = Conf.class.getClassLoader().getResourceAsStream(CONFIG_FILE);
@@ -110,7 +138,7 @@ public class Conf {
     }
 
     public String getTopic(){
-        return properties.getProperty(TOPIC);
+        return commendHashMap.isEmpty() ? properties.getProperty(TOPIC) : commendHashMap.get("--"+ TOPIC);
     }
 
     public String getZkServers(){
@@ -125,11 +153,11 @@ public class Conf {
         return properties.getProperty(ZK_ROOT);
     }
     public String getStormId(){
-        return  properties.getProperty(STORM_ID);
+        return commendHashMap.isEmpty() ? properties.getProperty(STORM_ID) : commendHashMap.get("--" + STORM_ID);
     }
 
     public String getStormName(){
-        return  properties.getProperty(STORM_NAME);
+        return commendHashMap.isEmpty() ?  properties.getProperty(STORM_NAME): commendHashMap.get("--" +STORM_NAME);
     }
 
     public String getBootstrapServers(){
@@ -137,7 +165,8 @@ public class Conf {
     }
 
     public String getStormToKafkaTopic(){
-        return  properties.getProperty(STORM_TO_KAFKA_TOPIC);
+        return commendHashMap.isEmpty() ? properties.getProperty(STORM_TO_KAFKA_TOPIC):
+                        commendHashMap.get("--" + STORM_TO_KAFKA_TOPIC);
     }
 
     public String getRedisHosts(){
@@ -161,11 +190,13 @@ public class Conf {
     }
 
     public String getRabbitMQVirtualHost(){
-        return  properties.getProperty(RABBITMQ_VIRTUAL_HOST);
+        return commendHashMap.isEmpty() ? properties.getProperty(RABBITMQ_VIRTUAL_HOST):
+                commendHashMap.get("--"+ RABBITMQ_VIRTUAL_HOST);
     }
 
     public String getRabbitMQQueueName(){
-        return properties.getProperty(RABBITMQ_QUEUE_NAME);
+        return commendHashMap.isEmpty() ? properties.getProperty(RABBITMQ_QUEUE_NAME):
+                commendHashMap.get("--" + RABBITMQ_QUEUE_NAME);
     }
 
     public String getJsonText(){
@@ -173,13 +204,71 @@ public class Conf {
     }
 
     public String getRabbitMQProducerName(){
-        return properties.getProperty(RABBITMQ_PRODUCER_NAME);
+        return commendHashMap.isEmpty() ? properties.getProperty(RABBITMQ_PRODUCER_NAME):
+                commendHashMap.get("--" + RABBITMQ_PRODUCER_NAME);
     }
     public String getRabbitMQExchangeName(){
-        return  properties.getProperty(RABBITMQ_EXCHANGE_NAME);
+        return commendHashMap.isEmpty() ? properties.getProperty(RABBITMQ_EXCHANGE_NAME):
+                commendHashMap.get("--" + RABBITMQ_EXCHANGE_NAME);
+    }
+
+    public String getStormSeeds(){
+        return commendHashMap.isEmpty()? properties.getProperty(STORM_SEEDS):
+                commendHashMap.get("--" + STORM_SEEDS);
     }
 
     public String getStreamingNumThreads(){
         return properties.getProperty(STREAMING_NUMThreads,"2");
+    }
+
+    public void parse(String[] args) {
+        Pattern eqSeparatedOpt = Pattern.compile("(--[^=]+)=(.+)");
+
+        int idx = 0;
+        for (String arg : args) {
+            idx++;
+            String value = null;
+
+            Matcher m = eqSeparatedOpt.matcher(arg);
+            if (m.matches()) {
+                arg = m.group(1);
+                value = m.group(2);
+                commendHashMap.put(arg,value);
+            }
+            // Look for options with a value.
+            String name = findCliOption(arg, opts);
+            if (name != null) {
+                if (value == null) {
+                    if (idx == args.length - 1) {
+                        throw new IllegalArgumentException(
+                                String.format("Missing argument for option '%s'.", arg));
+                    }
+                    value = args[idx];
+                    commendHashMap.put(name,value);
+                }
+                continue;
+            }
+
+            // Look for a switch.
+            name = findCliOption(arg, switches);
+            if (name != null) {
+                continue;
+            }
+        }
+
+        if (idx < args.length) {
+            idx++;
+        }
+    }
+
+    private  String findCliOption(String name, String[][] available) {
+        for (String[] candidates : available) {
+            for (String candidate : candidates) {
+                if (candidate.equals(name)) {
+                    return candidates[0];
+                }
+            }
+        }
+        return null;
     }
 }

@@ -35,14 +35,14 @@ object Word2verSensitiveWordStreaming {
     build.addTransportAddress(new InetSocketTransportAddress(inetSocketAddress))
 
   def main(args: Array[String]) {
-
+    //命令行参数解析
+    config.parse(args)
+    val redisHost = config.getRedisHosts
     // 创建spark项目
-    val conf = new SparkConf().setAppName("MLSensitiveWord")
-    conf.set("es.index.auto.create", "true")
-
     val Array(zkQuorum, group, topics, numThreads) = args
     val sparkConf = new SparkConf().setAppName("KafkaWordCount")
     sparkConf.set("es.nodes",esHostname)
+    sparkConf.set("es.index.auto.create", "true")
     val sc = new SparkContext(sparkConf)
     // 创建sparksql
 
@@ -105,7 +105,7 @@ object Word2verSensitiveWordStreaming {
       }
       data.foreach(println)
       val out = data.filter(x=>{x._2.equals("1.0")}).map(word=>{
-        val jedisCluster = JedisClient.getJedisCluster()
+        val jedisCluster = JedisClient.getJedisCluster(redisHost)
         val long = jedisCluster.sadd(ikMain,word._1)
         jedisCluster.publish(ikMain,word._1)
         loggers.debug("word is: " + word._1)

@@ -38,7 +38,7 @@ public class StormRabbitFilter {
      */
     public static void main(String[] args) throws Exception {
         Conf conf = new Conf();
-
+        conf.parse(args);
         TopologyBuilder builder = new TopologyBuilder();
 
         String rabbitMQHost = conf.getRabbitMQHost();
@@ -99,8 +99,9 @@ public class StormRabbitFilter {
         //config.put("kafka.broker.properties", props);
 
         String name = conf.getStormName();
-        if (args != null && args.length > 0) {
-            config.put(Config.NIMBUS_HOST, args[0]);
+        String StormSeeds = conf.getStormSeeds();
+        if (null != StormSeeds) {
+            config.put(Config.NIMBUS_SEEDS, StormSeeds);
             config.setNumWorkers(3);
             StormSubmitter.submitTopologyWithProgressBar(name, config, builder.createTopology());
         } else {

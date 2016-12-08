@@ -13,8 +13,6 @@ import org.apache.storm.topology.TopologyBuilder;
 
 import java.util.*;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * Created by wangxiaojing on 2016/9/29.
@@ -28,8 +26,6 @@ public class StormKafkaFilter {
 
     private static final String SEND_TO_KAFKA = "send_to_kafka";
 
-    private Logger loggers =  LoggerFactory.getLogger(StormKafkaFilter.class);
-
     private static final String LOCAL = "local";
 
     private static final String CLUSTER = "cluster";
@@ -40,6 +36,7 @@ public class StormKafkaFilter {
      */
     public static void main(String[] args) throws Exception {
         Conf conf = new Conf();
+        conf.parse(args);
         String topic = conf.getTopic();
         String[] zkServers = conf.getZkServers().split(",");
         List<String> zkHosts = new ArrayList<>();
@@ -83,8 +80,9 @@ public class StormKafkaFilter {
         // 设置storm 的配置
         Config config = new Config();
         String name = conf.getStormName();
-        if (args != null && args.length > 0) {
-            config.put(Config.NIMBUS_HOST, args[0]);
+        String StormSeeds = conf.getStormSeeds();
+        if (null != StormSeeds) {
+            config.put(Config.NIMBUS_SEEDS, StormSeeds);
             config.setNumWorkers(1);
             StormSubmitter.submitTopologyWithProgressBar(name, config, builder.createTopology());
         } else {

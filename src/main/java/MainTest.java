@@ -27,15 +27,20 @@ public class MainTest {
 
         //Dictionary.getSingleton().addStopWords(words);
         //wordFilterMy.semanticAnalysis("眼角膜亚硝酰乙氧亚硒酸二钠求肾，妈妈不喜欢吃肉,出售手枪出售炸弹出售冰毒");
-        wordFilterMy.fileCreateIndex();
+        //wordFilterMy.fileCreateIndex();
         int i = wordFilterMy.createIndex("彩宝我试试");
         System.out.println("return is " + i);
         ConcurrentHashMap<String,String> searchHits = wordFilterMy.searchAllWord("彩宝我试试");
         System.out.println(searchHits.toString());
-        boolean result = wordFilterMy.deleteEs("彩宝我试试");
-        System.out.println(result);
+        //boolean result = wordFilterMy.deleteEs("彩宝我试试");
+        //System.out.println(result);
 
-        boolean result1 = wordFilterMy.deleteEsWordId("AViEy4wicawEBYnALN9Q");
-        System.out.println(result1);
+        //boolean result1 = wordFilterMy.deleteEsWordId("AViEy4wicawEBYnALN9Q");
+        //System.out.println(result1);
+
+        for (String arg : args) {
+            int re = wordFilterMy.createIndex(arg);
+            System.out.println("add indexReturn is " + re);
+        }
     }
 }
