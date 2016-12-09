@@ -80,10 +80,18 @@ public class StormKafkaFilter {
         // 设置storm 的配置
         Config config = new Config();
         String name = conf.getStormName();
-        String StormSeeds = conf.getStormSeeds();
-        if (null != StormSeeds) {
-            config.put(Config.NIMBUS_SEEDS, StormSeeds);
-            config.setNumWorkers(1);
+        String[] stormSeeds = conf.getStormSeeds().split(",");
+        if (null != stormSeeds) {
+            if(stormSeeds.length == 1){
+                config.put(Config.NIMBUS_HOST,conf.getStormSeeds());
+            }else{
+                List<String> stormSeedsList = new ArrayList<>();
+                for (String stormSeed : stormSeeds) {
+                    stormSeedsList.add(stormSeed);
+                }
+                config.put(Config.NIMBUS_SEEDS, stormSeedsList);
+            }
+            config.setNumWorkers(3);
             StormSubmitter.submitTopologyWithProgressBar(name, config, builder.createTopology());
         } else {
             config.setMaxTaskParallelism(1);

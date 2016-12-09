@@ -267,7 +267,7 @@ public class WordFilter {
                     .setAnalyzer("ik_smart").execute().actionGet();
             List<AnalyzeToken> list = analyzeResponse.getTokens();
             if (list.isEmpty()) {
-                return true;
+                return result;
             } else {
                 for (AnalyzeToken analyzeToken : list) {
                     String word = analyzeToken.getTerm();
