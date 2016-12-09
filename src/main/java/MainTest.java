@@ -27,7 +27,7 @@ public class MainTest {
 
         //Dictionary.getSingleton().addStopWords(words);
         //wordFilterMy.semanticAnalysis("眼角膜亚硝酰乙氧亚硒酸二钠求肾，妈妈不喜欢吃肉,出售手枪出售炸弹出售冰毒");
-        //wordFilterMy.fileCreateIndex();
+        wordFilterMy.fileCreateIndex();
         int i = wordFilterMy.createIndex("彩宝我试试");
         System.out.println("return is " + i);
         ConcurrentHashMap<String,String> searchHits = wordFilterMy.searchAllWord("彩宝我试试");

@@ -80,13 +80,14 @@ public class StormKafkaFilter {
         // 设置storm 的配置
         Config config = new Config();
         String name = conf.getStormName();
-        String[] stormSeeds = conf.getStormSeeds().split(",");
+        String stormSeeds = conf.getStormSeeds();
         if (null != stormSeeds) {
-            if(stormSeeds.length == 1){
+            String[] stormSeedsA = stormSeeds.split(",");
+            if(stormSeedsA.length == 1){
                 config.put(Config.NIMBUS_HOST,conf.getStormSeeds());
             }else{
                 List<String> stormSeedsList = new ArrayList<>();
-                for (String stormSeed : stormSeeds) {
+                for (String stormSeed : stormSeedsA) {
                     stormSeedsList.add(stormSeed);
                 }
                 config.put(Config.NIMBUS_SEEDS, stormSeedsList);

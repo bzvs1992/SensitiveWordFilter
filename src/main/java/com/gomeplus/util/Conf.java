@@ -138,7 +138,9 @@ public class Conf {
     }
 
     public String getTopic(){
-        return commendHashMap.isEmpty() ? properties.getProperty(TOPIC) : commendHashMap.get("--"+ TOPIC);
+        return commendHashMap.containsKey("--"+ TOPIC) ?
+                commendHashMap.get("--"+ TOPIC):
+                properties.getProperty(TOPIC);
     }
 
     public String getZkServers(){
@@ -153,11 +155,15 @@ public class Conf {
         return properties.getProperty(ZK_ROOT);
     }
     public String getStormId(){
-        return commendHashMap.isEmpty() ? properties.getProperty(STORM_ID) : commendHashMap.get("--" + STORM_ID);
+        return commendHashMap.containsKey("--" + STORM_ID) ?
+                commendHashMap.get("--" + STORM_ID):
+                properties.getProperty(STORM_ID);
     }
 
     public String getStormName(){
-        return commendHashMap.isEmpty() ?  properties.getProperty(STORM_NAME): commendHashMap.get("--" +STORM_NAME);
+        return commendHashMap.containsKey("--" +STORM_NAME) ?
+                commendHashMap.get("--" +STORM_NAME) :
+                properties.getProperty(STORM_NAME);
     }
 
     public String getBootstrapServers(){
@@ -165,8 +171,9 @@ public class Conf {
     }
 
     public String getStormToKafkaTopic(){
-        return commendHashMap.isEmpty() ? properties.getProperty(STORM_TO_KAFKA_TOPIC):
-                        commendHashMap.get("--" + STORM_TO_KAFKA_TOPIC);
+        return commendHashMap.containsKey("--" + STORM_TO_KAFKA_TOPIC) ?
+                commendHashMap.get("--" + STORM_TO_KAFKA_TOPIC):
+                properties.getProperty(STORM_TO_KAFKA_TOPIC);
     }
 
     public String getRedisHosts(){
@@ -190,13 +197,15 @@ public class Conf {
     }
 
     public String getRabbitMQVirtualHost(){
-        return commendHashMap.isEmpty() ? properties.getProperty(RABBITMQ_VIRTUAL_HOST):
-                commendHashMap.get("--"+ RABBITMQ_VIRTUAL_HOST);
+        return commendHashMap.containsKey("--"+ RABBITMQ_VIRTUAL_HOST) ?
+                commendHashMap.get("--"+ RABBITMQ_VIRTUAL_HOST) :
+                properties.getProperty(RABBITMQ_VIRTUAL_HOST);
     }
 
     public String getRabbitMQQueueName(){
-        return commendHashMap.isEmpty() ? properties.getProperty(RABBITMQ_QUEUE_NAME):
-                commendHashMap.get("--" + RABBITMQ_QUEUE_NAME);
+        return commendHashMap.containsKey("--" + RABBITMQ_QUEUE_NAME) ?
+                commendHashMap.get("--" + RABBITMQ_QUEUE_NAME):
+                properties.getProperty(RABBITMQ_QUEUE_NAME);
     }
 
     public String getJsonText(){
@@ -204,17 +213,20 @@ public class Conf {
     }
 
     public String getRabbitMQProducerName(){
-        return commendHashMap.isEmpty() ? properties.getProperty(RABBITMQ_PRODUCER_NAME):
-                commendHashMap.get("--" + RABBITMQ_PRODUCER_NAME);
+        return commendHashMap.containsKey("--" + RABBITMQ_PRODUCER_NAME) ?
+                commendHashMap.get("--" + RABBITMQ_PRODUCER_NAME):
+                properties.getProperty(RABBITMQ_PRODUCER_NAME);
     }
     public String getRabbitMQExchangeName(){
-        return commendHashMap.isEmpty() ? properties.getProperty(RABBITMQ_EXCHANGE_NAME):
-                commendHashMap.get("--" + RABBITMQ_EXCHANGE_NAME);
+        return commendHashMap.containsKey("--" + RABBITMQ_EXCHANGE_NAME) ?
+                commendHashMap.get("--" + RABBITMQ_EXCHANGE_NAME):
+                properties.getProperty(RABBITMQ_EXCHANGE_NAME);
     }
 
     public String getStormSeeds(){
-        return commendHashMap.isEmpty()? properties.getProperty(STORM_SEEDS):
-                commendHashMap.get("--" + STORM_SEEDS);
+        return commendHashMap.containsKey("--" + STORM_SEEDS)?
+                commendHashMap.get("--" + STORM_SEEDS):
+                properties.getProperty(STORM_SEEDS);
     }
 
     public String getStreamingNumThreads(){
