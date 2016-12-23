@@ -263,7 +263,17 @@ public class WordFilter {
     public boolean semanticAnalysis(String text) {
         boolean result = false;
         if (text != null & !text.isEmpty()) {
-            AnalyzeResponse analyzeResponse = client.admin().indices().prepareAnalyze(text)
+            //将语句进行字符删除
+            String textSymbolFilter = text
+                    .replace("@", "")
+                    .replace("?", "")
+                    .replace("!", "")
+                    .replace("//", "")
+                    .replace("\\", "")
+                    .replace("&", "")
+                    .replace("@", "")
+                    .replace(" ","").trim();
+            AnalyzeResponse analyzeResponse = client.admin().indices().prepareAnalyze(textSymbolFilter)
                     .setAnalyzer("ik_smart").execute().actionGet();
             List<AnalyzeToken> list = analyzeResponse.getTokens();
             if (list.isEmpty()) {

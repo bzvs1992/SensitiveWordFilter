@@ -25,7 +25,7 @@ object MLSensitiveWordStreaming {
 
   val loggers = LoggerFactory.getLogger("MLSensitiveWord Streaming")
   val ikMain = "ik_main"
-
+  val modelDir = "modelDir"
   def main(args: Array[String]) {
     // 参数解析
     val config = new Conf()
@@ -96,7 +96,7 @@ object MLSensitiveWordStreaming {
         val idfModelString = idfString.fit(tfString)
         val tfidfString = idfModelString.transform(tfString)
 
-        val model =  NaiveBayesModel.load("test")
+        val model =  NaiveBayesModel.load(modelDir)
         val predictionAndLabel = model.transform(tfidfString)
         predictionAndLabel.printSchema()
         data = predictionAndLabel.filter("prediction=1.0").select("word").map(x=>{x.getList(0).get(0).toString})
