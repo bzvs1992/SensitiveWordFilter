@@ -78,7 +78,7 @@ object MLSensitiveWord {
       val actual = JSON.parseObject(result).getJSONArray("tokens")
       var sensitiveWordList = List(new String)
       for(i<- 0 to actual.size() - 1){
-        sensitiveWordList = actual.getString(i) ::sensitiveWordList
+        sensitiveWordList = actual.getJSONObject(i).getString("token") ::sensitiveWordList
       }
       sensitiveWordList
     }).distinct(10)
@@ -89,8 +89,9 @@ object MLSensitiveWord {
 
     val rdd = sensitiveWord_2.union(unSensitiveWords_2)
     val trainDataFrame = sqlContext.createDataFrame(rdd).toDF("word","label")
+    val Array(trainData,testData) = trainDataFrame.randomSplit(Array(0.8,0.4))
     val hashingTF = new  HashingTF().setInputCol("word").setOutputCol("rawFeatures").setNumFeatures(2000)
-    val tf = hashingTF.transform(trainDataFrame)
+    val tf = hashingTF.transform(trainData)
     tf.printSchema()
     val idf = new IDF().setInputCol("rawFeatures").setOutputCol("features")
     val idfModel = idf.fit(tf)
@@ -114,32 +115,53 @@ object MLSensitiveWord {
     if(args.length>0 && args(0).equals("test")){
       loggers.info("Start test this model:")
       val unSensitiveWordsCount = unSensitiveWords.count()
-      val testDataFrame = sqlContext.createDataFrame(sensitiveWord_2).toDF("word","label")
-      val testtdf = hashingTF.transform(testDataFrame)
-      val testidfModel = idf.fit(testtdf)
-      val testTfidf = testidfModel.transform(testtdf)
+      val testDataFrame = sqlContext.createDataFrame(rdd).toDF("word","label")
+      val testTdf = hashingTF.transform(testData)
+      val testIdfModel = idf.fit(testTdf)
+      val testTfIdf = testIdfModel.transform(testTdf)
 
       // 模型验证
       val loadModel = NaiveBayesModel.load(modelDir)
-      val out = loadModel.transform(testTfidf)
-      val testData = out.select("word","prediction","label").filter("prediction=label").count().toDouble
-      val testDataFalse_data = out.select("word","prediction","label").filter("prediction!=label")
-      val testDataFalse = testDataFalse_data.count().toDouble
+      val out = loadModel.transform(testTfIdf)
+      val trueData = out.select("word","prediction","label").filter("prediction=label")
+      val falseData = out.select("word","prediction","label").filter("prediction!=label")
+      val falseDataNum = falseData.count().toDouble
+      val trueDataNum = trueData.count().toDouble
+
       //testDataFalse_data.foreach(println)
-      val truePositive = testDataFalse_data.filter("prediction = 1.0 and label = 0.0" )
-      val falseNegative = testDataFalse_data.filter("prediction = 0.0 and label = 1.0" )
+      val truePositive = trueData.filter("prediction = 1.0 and label = 1.0 " )
+      val trueNegative = trueData.filter("prediction = 0.0 and label = 0.0" )
+      val falsePositive = falseData.filter("prediction = 1.0 and label = 0.0 ")
+      val falseNegative = falseData.filter("prediction = 0.0 and label = 1.0 ")
 
-      val all = out.count().toDouble
-      val num = testData/all*100
-      val s = out.filter("prediction = 1.0").count()
-      val TP = truePositive.count().toDouble
-      val FN = falseNegative.count().toDouble
-      val ttot = FN/size*100
+      val tp = truePositive.count().toDouble
+      val tn = trueNegative.count().toDouble
+      val fp = falsePositive.count().toDouble
+      val fn = falseNegative.count().toDouble
 
-      out.select("word","prediction","label").filter("prediction=label and label=1.0").show(100)
-      loggers.info("最终输出敏感词个数 ：" +  s + "实际上敏感词个数 " + size + "  非敏感词个数 ： " + unSensitiveWordsCount)
-      loggers.info("打标错误，正常词打成敏感词个数："+ TP + " 敏感词打成正常词个数：" + FN+ "错误判断敏感词的概率" + ttot)
-      loggers.info("总计： " + all + "正确 ： " + testData + " 错误个数：" + testDataFalse + " 准确率 :" + num + "%")
+      val all = falseDataNum +  trueDataNum
+      //准确率
+      val accuracy  = trueDataNum/all
+      // 精准率
+      val precision =  tp /(tp + fp)
+      //召回率
+      val recall = tp /(tp + fn)
+      val num = size + unSensitiveWordsCount
+      val score = precision * recall/2/(recall + precision)
+
+
+      truePositive.select("word").map(x=>{x.getList(0).get(0).toString}).saveAsTextFile("truePositive")
+      trueNegative.select("word").map(x=>{x.getList(0).get(0).toString}).saveAsTextFile("trueNegative")
+      falsePositive.select("word").map(x=>{x.getList(0).get(0).toString}).saveAsTextFile("falsePositive")
+      falseNegative.select("word").map(x=>{x.getList(0).get(0).toString}).saveAsTextFile("falseNegative")
+      out.show(1000)
+      unSensitiveWords.foreach(print)
+      loggers.info("正确判断：正确判断敏感词个数 ：" +  tp + "正确判断非敏感词个数" + tn)
+      loggers.info("打标错误，正常词打成敏感词个数："+ fp + " 敏感词打成正常词个数：" + fn )
+      loggers.info( "输入数据：总计 " + num + " 实际上敏感词个数 " + size + "  非敏感词个数 ： " + unSensitiveWordsCount )
+      loggers.info("输出数据 ：总计： " + all + "正确 ： " + trueDataNum + " 错误个数：" + falseDataNum )
+      loggers.info("精准率" + precision + " 准确率 :" + accuracy + " 召回率 ：" + recall + " F1 score: " + score)
+
     }
   }
 }

@@ -78,7 +78,7 @@ object MLSensitiveWordStreaming {
         val actual = JSON.parseObject(result).getJSONArray("tokens")
         var sensitiveWordList = List(new String)
         for(i<- 0 until  actual.size()){
-          sensitiveWordList = actual.getString(i) ::sensitiveWordList
+          sensitiveWordList = actual.getJSONObject(i).getString("token") ::sensitiveWordList
         }
       //println("word is " + sensitiveWordList)
       sensitiveWordList
