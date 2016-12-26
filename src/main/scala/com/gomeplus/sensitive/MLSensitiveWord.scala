@@ -77,8 +77,28 @@ object MLSensitiveWord {
         .asString.body
       val actual = JSON.parseObject(result).getJSONArray("tokens")
       var sensitiveWordList = List(new String)
-      for(i<- 0 to actual.size() - 1){
-        sensitiveWordList = actual.getJSONObject(i).getString("token") ::sensitiveWordList
+      for(i <- 0 to actual.size() - 1){
+        val thisWord = actual.getJSONObject(i).getString("token")
+        //将长度为1的语句不作为敏感词汇处理
+        if(thisWord.size != 1){
+          sensitiveWordList = thisWord ::sensitiveWordList
+        }
+        //sensitiveWordList = thisWord ::sensitiveWordList
+        //目的防止由于分词破坏了原有的字符意义
+        // 如果是第一个单词
+       /* if(i < (actual.size() - 2)){
+          // 当前单词和下一个单词拼接成新的字符串
+          val nextWord =  thisWord + actual.getJSONObject(i+1).getString("token")
+          sensitiveWordList = nextWord ::sensitiveWordList
+        } else if(0 < i & i < (actual.size() - 2)){
+          // 当前单词和下一个单词拼接成新的字符串
+          val nextWord =  thisWord + actual.getJSONObject(i+1).getString("token")
+          // 当前单词和前后单词拼接成新的字符串
+          val threeWord = actual.getJSONObject(i-1).getString("token") + thisWord + actual.getJSONObject(i+1).getString("token")
+          sensitiveWordList = nextWord :: threeWord ::sensitiveWordList
+        }*/
+
+        /************************如果是一个字则将它与后面的字合并到一起****************************************/
       }
       sensitiveWordList
     }).distinct(10)
@@ -86,10 +106,10 @@ object MLSensitiveWord {
     //创建一个(word，label) tuples
     val sensitiveWord_2 = sensitiveWord.map(x=>{(Seq(x),1.0)})
     val unSensitiveWords_2 = unSensitiveWords.subtract(sensitiveWord).map(x=>{(Seq(x),0.0)})
-
+    val Array(t1 ,t2,t3) = unSensitiveWords_2.randomSplit(Array(0.2,0.4,0.4))
     val rdd = sensitiveWord_2.union(unSensitiveWords_2)
     val trainDataFrame = sqlContext.createDataFrame(rdd).toDF("word","label")
-    val Array(trainData,testData) = trainDataFrame.randomSplit(Array(0.8,0.4))
+    val Array(trainData,testData) = trainDataFrame.randomSplit(Array(0.8,0.2))
     val hashingTF = new  HashingTF().setInputCol("word").setOutputCol("rawFeatures").setNumFeatures(2000)
     val tf = hashingTF.transform(trainData)
     tf.printSchema()
@@ -115,7 +135,8 @@ object MLSensitiveWord {
     if(args.length>0 && args(0).equals("test")){
       loggers.info("Start test this model:")
       val unSensitiveWordsCount = unSensitiveWords.count()
-      val testDataFrame = sqlContext.createDataFrame(rdd).toDF("word","label")
+      val testRdd = sensitiveWord_2.union(unSensitiveWords_2)
+      val testDataFrame = sqlContext.createDataFrame(testRdd).toDF("word","label")
       val testTdf = hashingTF.transform(testData)
       val testIdfModel = idf.fit(testTdf)
       val testTfIdf = testIdfModel.transform(testTdf)
@@ -155,7 +176,6 @@ object MLSensitiveWord {
       falsePositive.select("word").map(x=>{x.getList(0).get(0).toString}).saveAsTextFile("falsePositive")
       falseNegative.select("word").map(x=>{x.getList(0).get(0).toString}).saveAsTextFile("falseNegative")
       out.show(1000)
-      unSensitiveWords.foreach(print)
       loggers.info("正确判断：正确判断敏感词个数 ：" +  tp + "正确判断非敏感词个数" + tn)
       loggers.info("打标错误，正常词打成敏感词个数："+ fp + " 敏感词打成正常词个数：" + fn )
       loggers.info( "输入数据：总计 " + num + " 实际上敏感词个数 " + size + "  非敏感词个数 ： " + unSensitiveWordsCount )

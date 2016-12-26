@@ -2,7 +2,7 @@ package com.gomeplus.sensitive
 
 import java.net.InetSocketAddress
 
-import com.alibaba.fastjson.JSON
+import com.alibaba.fastjson.{JSONObject, JSONException, JSON}
 import com.gomeplus.util.Conf
 import org.apache.spark.ml.classification.NaiveBayesModel
 import org.apache.spark.ml.feature.{HashingTF, IDF}
@@ -56,18 +56,31 @@ object MLSensitiveWordStreaming {
 
     // 通过流获取的数据作为测试数据使用
     val words = lines.map(x=>{
-      var jsonObject = JSON.parseObject(x)
-      for(i<- 0 to jsonText.size-2){
-        jsonObject = jsonObject.getJSONObject(jsonText(i))
+      var jsonObject= new JSONObject()
+      try {
+         jsonObject = JSON.parseObject(x)
+      }catch {
+        case ex:JSONException => {
+          jsonObject = null
+          ex.printStackTrace()
+        }
       }
-      val text = jsonObject.getString(jsonText.last)
-      loggers.debug("input text is : " + text)
-      text.replace("@","").replace("?",
-        "").replace("!",
-        "").replace("//",
-        "").replace("\\",
-        "").replace("&",
-        "").trim
+      if(jsonObject != null){
+        for(i<- 0 to jsonText.size-2){
+          jsonObject = jsonObject.getJSONObject(jsonText(i))
+        }
+        val text = jsonObject.getString(jsonText.last)
+        loggers.debug("input text is : " + text)
+        text.replace("@","").replace("?",
+          "").replace("!",
+          "").replace("//",
+          "").replace("\\",
+          "").replace("&",
+          "").trim
+      }else{
+        val text =""
+        text
+      }
     }).filter(_.length>0)
       .flatMap(x=>{
         val result = Http(url)
@@ -113,7 +126,7 @@ object MLSensitiveWordStreaming {
         //loggers.debug("sensitiveword is: " + word._2)
         ("word",word._2)})
       //将新的敏感词存入ES
-      out.saveToEs("gome/word")
+      out.saveToEs("gome/word1")
       out
     })
 
