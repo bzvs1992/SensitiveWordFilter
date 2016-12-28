@@ -71,12 +71,12 @@ object MLSensitiveWordStreaming {
         }
         val text = jsonObject.getString(jsonText.last)
         loggers.debug("input text is : " + text)
-        text.replace("@","").replace("?",
-          "").replace("!",
-          "").replace("//",
-          "").replace("\\",
-          "").replace("&",
-          "").trim
+        text.replace("@","")
+          .replace("?", "")
+          .replace("!", "")
+          .replace("//", "")
+          .replace("\\", "")
+          .replace("&", "").trim
       }else{
         val text =""
         text

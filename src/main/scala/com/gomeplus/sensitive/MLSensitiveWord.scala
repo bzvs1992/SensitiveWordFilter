@@ -60,14 +60,13 @@ object MLSensitiveWord {
 
     // 获取hdfs内的数据作为非敏感词数据进行训练模型
     val unSensitiveWordLine =  sc.textFile(hdfsPath).map(x=>{
-      x.replace("@",
-        "").replace("?",
-        "").replace("!",
-        "").replace("//",
-        "").replace("\\",
-        "").replace("&",
-        "").replace("@",
-        "").trim
+      x.replace("@", "")
+        .replace("?", "")
+        .replace("!", "")
+        .replace("//", "")
+        .replace("\\", "")
+        .replace("&", "")
+        .replace("@", "").trim
     })
     val unSensitiveWords = unSensitiveWordLine.filter(_.size>0).flatMap(x=>{
       val result = Http(url)
