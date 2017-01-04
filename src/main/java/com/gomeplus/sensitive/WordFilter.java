@@ -6,8 +6,14 @@ package com.gomeplus.sensitive;
 
 
 import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
 import org.apache.commons.pool2.impl.GenericObjectPoolConfig;
+import org.apache.http.*;
+import org.apache.http.client.methods.HttpPost;
+import org.apache.http.entity.StringEntity;
+import org.apache.http.protocol.HTTP;
+import org.apache.http.util.EntityUtils;
 import org.elasticsearch.action.admin.indices.analyze.AnalyzeResponse;
 import org.elasticsearch.action.admin.indices.analyze.AnalyzeResponse.*;
 import org.elasticsearch.action.admin.indices.exists.indices.IndicesExistsRequest;
@@ -42,6 +48,11 @@ import com.gomeplus.util.Conf;
 import redis.clients.jedis.HostAndPort;
 import redis.clients.jedis.JedisCluster;
 
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import org.apache.http.HttpResponse;
+import org.apache.http.client.methods.HttpGet;
+import org.apache.http.impl.client.DefaultHttpClient;
 
 public class WordFilter {
 
@@ -68,6 +79,14 @@ public class WordFilter {
 
     // redis 配置
     private JedisCluster jc = null;
+    //http 请求
+    private HttpHost target = null;
+    // elasticSearch master
+    private String esMaster = null;
+    // http client
+    private  DefaultHttpClient httpClient = null;
+    // http post
+    private HttpPost httpPost = null;
 
     /**
      * 构造函数，负责读取配置文件，完成Es设置
@@ -86,6 +105,12 @@ public class WordFilter {
         client = TransportClient.builder().settings(settings).build()
                 .addTransportAddress(new InetSocketTransportAddress(inetSocketAddress));
 
+        // 设置es的url
+        esMaster = esHostname[0].split(":")[0];
+        target =new HttpHost(esMaster, 9200, "http");
+        httpClient = new DefaultHttpClient();
+        String uriStr = "http://"+esMaster + ":9200/gome/word/_search?pretty";
+        httpPost = new HttpPost(uriStr);
         // redis 创建
         String[] redisHosts = conf.getRedisHosts().split(",");
         Set<HostAndPort> hps = new HashSet<HostAndPort>();
@@ -125,7 +150,7 @@ public class WordFilter {
                     //创建es索引
                     IndexResponse response = client.prepareIndex(GOME, WORD).setSource(builder).get();
                     if (response.isCreated()) {
-                        loggers.info(response.getId() + "   index: " + response.getIndex() + " word:  " + word);
+                        loggers.debug(response.getId() + "   index: " + response.getIndex() + " word:  " + word);
                         // 持久化到ik库，当重启时能继续加载已更新热词
                         jc.sadd(ikMain, word);
                         // 添加redid订阅内，完成热词更新操作
@@ -140,7 +165,7 @@ public class WordFilter {
                 }
 
             } catch (Exception e) {
-                loggers.info(e.toString());
+                loggers.error(e.toString());
                 result = 2;
             }
         }
@@ -207,8 +232,6 @@ public class WordFilter {
                         String word = hit.getSource().get("word").toString();
                         // 如果查找到立刻返回，不在做过多的判断
                         if (hit.getSource().containsValue(str)&&word.equals(str)) {
-                            loggers.info("Index is : " + hit.getIndex() +
-                                    "ID is: " + hit.getId() + " type is:" + hit.getType() + " word is : " + word);
                             result = hit.getId();
                             return result;
                         }
@@ -222,6 +245,44 @@ public class WordFilter {
         return result;
     }
 
+    /*
+    * 通过es的Restful 实现搜索
+    * */
+    public String searchWordByRestful(String str) {
+        String result = null;
+        if (str != null & !str.isEmpty()) {
+            try{
+                String query = "{\"query\":{\"match_phrase\":{\"word\":\""+str+"\"}}}";
+                StringEntity entity = new StringEntity(query, HTTP.UTF_8);
+                httpPost.setEntity(entity);
+                HttpResponse response = httpClient.execute(httpPost);
+                if (response.getStatusLine().getStatusCode() != 200) {
+                    throw new RuntimeException("Failed : HTTP error code : "
+                            + response.getStatusLine().getStatusCode());
+                }
+                HttpEntity entityResponse = response.getEntity();
+                if (entityResponse != null) {
+                    String content = EntityUtils.toString(entityResponse);
+                    //loggers.info(content);
+                    JSONObject hits = JSON.parseObject(content).getJSONObject("hits");
+                    int total = hits.getIntValue("total");
+                    if(total>0){
+                        JSONArray hitsJSONArray = hits.getJSONArray("hits");
+                        String word = hits.getJSONArray("hits").getJSONObject(0).getJSONObject("_source").getString("word");
+                            if(word.equals(str)){
+                                //loggers.info(word);
+                                return hits.getJSONArray("hits").getJSONObject(0).getString("_id");
+                            }
+                        }
+                }
+            }catch (Exception e){
+                e.printStackTrace();
+            }
+
+
+        }
+        return null;
+    }
     /**
      * 查询词某个单词
      *
@@ -284,7 +345,6 @@ public class WordFilter {
                     //如果是敏感词
                     String isSensitive = searchWord(word);
                     if (null!=isSensitive) {
-                        loggers.info(word);
                         int startOffset = analyzeToken.getStartOffset();
                         int endOffset = analyzeToken.getEndOffset();
                         //递归查询是否是敏感词
@@ -302,17 +362,64 @@ public class WordFilter {
                                 }
                             }
                         }
-                        loggers.info("Analyze Sensitive word : " + word);
+                        loggers.debug("Analyze Sensitive word : " + word);
                         result = true;
                         return result;
                     }
-                    loggers.info("Term :" + analyzeToken.getTerm() + "\t position : " + analyzeToken.getPosition());
+                    loggers.debug("Term :" + analyzeToken.getTerm() + "\t position : " + analyzeToken.getPosition());
                 }
                 return result;
             }
         } else {
             return result;
         }
+    }
+
+    /**
+     * 对输入文档进行中文分词操作，递归查询每个分词是否是敏感词，
+     *
+     * @return : 当存在敏感词语句是返回true，否则返回false
+     */
+    public boolean semanticAnalysisByRestful(String text) {
+        boolean result = false;
+        if (text != null & !text.isEmpty()) {
+            //将语句进行字符删除
+            String textSymbolFilter = text
+                    .replace("@", "")
+                    .replace("?", "")
+                    .replace("!", "")
+                    .replace("//", "")
+                    .replace("\\", "")
+                    .replace("&", "")
+                    .replace("@", "")
+                    .replace(" ", "").trim();
+            try{
+                HttpGet getRequest = new HttpGet("/_analyze?text=" + textSymbolFilter + "&analyzer=ik_smart&pretty");
+                HttpResponse response = httpClient.execute(target, getRequest);
+                if (response.getStatusLine().getStatusCode() != 200) {
+                    throw new RuntimeException("Failed : HTTP error code : "
+                            + response.getStatusLine().getStatusCode());
+                }
+                HttpEntity entity = response.getEntity();
+                if (entity != null) {
+                    String content = EntityUtils.toString(entity);
+                    loggers.debug(content);
+                    JSONArray jsonArray = JSON.parseObject(content).getJSONArray("tokens");
+                    for(int i = 0 ;i < jsonArray.size(); i++){
+                        String word = jsonArray.getJSONObject(i).getString("token");
+                        String isSensitive = searchWordByRestful(word);
+                        loggers.info(word);
+                        if(null != isSensitive){
+                            return true;
+                        }
+                    }
+                }
+
+            }catch (Exception e){
+                loggers.error(e.toString());
+            }
+        }
+        return result;
     }
 
 
