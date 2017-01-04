@@ -59,9 +59,9 @@ public class StormKafkaFilter {
         TopologyBuilder builder = new TopologyBuilder();
 
         //从kafka的消息队里获取数据到KAFKA_SPOUT_ID内
-        builder.setSpout(KAFKA_SPOUT_ID, new KafkaSpout(spoutConf), 1);
+        builder.setSpout(KAFKA_SPOUT_ID, new KafkaSpout(spoutConf), 3);
         //将过滤的数据输出命名为SENSITIVE_FILTER的的bolt中
-        builder.setBolt(SENSITIVE_FILTER, new SensitiveWordKafkaBolt()).shuffleGrouping(KAFKA_SPOUT_ID);
+        builder.setBolt(SENSITIVE_FILTER, new SensitiveWordKafkaBolt(),3).shuffleGrouping(KAFKA_SPOUT_ID);
         // 创建kafka bolt 将数据发送到kafka
         // 设置producer配置
         Properties props = new Properties();
@@ -76,9 +76,10 @@ public class StormKafkaFilter {
 
         // 将bolt产生的数据 输出数据到kafka
         //管道名称SEND_TO_KAFKA
-        builder.setBolt(SEND_TO_KAFKA,bolt,1).shuffleGrouping(SENSITIVE_FILTER);
+        builder.setBolt(SEND_TO_KAFKA,bolt,3).shuffleGrouping(SENSITIVE_FILTER);
         // 设置storm 的配置
         Config config = new Config();
+        config.setNumAckers(0);
         String name = conf.getStormName();
         String stormSeeds = conf.getStormSeeds();
         if (null != stormSeeds) {
