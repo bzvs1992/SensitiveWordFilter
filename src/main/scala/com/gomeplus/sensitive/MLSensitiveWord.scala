@@ -1,6 +1,6 @@
 package com.gomeplus.sensitive
 
-import java.net.InetSocketAddress
+import java.net.{SocketException, InetSocketAddress}
 
 import com.alibaba.fastjson.JSON
 import com.gomeplus.util.Conf
@@ -66,51 +66,66 @@ object MLSensitiveWord {
         .replace("//", "")
         .replace("\\", "")
         .replace("&", "")
-        .replace("@", "").trim
+        .replace("@", "")
+        .replace("%","")
+        // 中文字符的替换
+        .replace("？","")
+        .replace("】","")
+        .replace("”","'")
+        .replace("“","'")
+        .trim
     })
     val unSensitiveWords = unSensitiveWordLine.filter(_.size>0).flatMap(x=>{
-      val result = Http(url)
-        .param("pretty","true")
-        .param("analyzer","ik_smart")
-        .param("text",x)
-        .asString.body
-      val actual = JSON.parseObject(result).getJSONArray("tokens")
       var sensitiveWordList = List(new String)
-      for(i <- 0 to actual.size() - 1){
-        val thisWord = actual.getJSONObject(i).getString("token")
-        //将长度为1的语句不作为敏感词汇处理
-        if(thisWord.size != 1){
-          sensitiveWordList = thisWord ::sensitiveWordList
-        }
-        //sensitiveWordList = thisWord ::sensitiveWordList
-        //目的防止由于分词破坏了原有的字符意义
-        // 如果是第一个单词
-       /* if(i < (actual.size() - 2)){
-          // 当前单词和下一个单词拼接成新的字符串
-          val nextWord =  thisWord + actual.getJSONObject(i+1).getString("token")
-          sensitiveWordList = nextWord ::sensitiveWordList
-        } else if(0 < i & i < (actual.size() - 2)){
-          // 当前单词和下一个单词拼接成新的字符串
-          val nextWord =  thisWord + actual.getJSONObject(i+1).getString("token")
-          // 当前单词和前后单词拼接成新的字符串
-          val threeWord = actual.getJSONObject(i-1).getString("token") + thisWord + actual.getJSONObject(i+1).getString("token")
-          sensitiveWordList = nextWord :: threeWord ::sensitiveWordList
-        }*/
+      try{
+        val result = Http(url)
+          .param("pretty","true")
+          .param("analyzer","ik_smart")
+          .param("text",x)
+          .asString.body
+        val actual = JSON.parseObject(result).getJSONArray("tokens")
+        if(actual!= null){
+          for(i <- 0 to actual.size() - 1){
+            val thisWord = actual.getJSONObject(i).getString("token")
+            //将长度为1的语句不作为敏感词汇处理
+            if(thisWord.size > 1){
+              sensitiveWordList = thisWord ::sensitiveWordList
+            }
+            //sensitiveWordList = thisWord ::sensitiveWordList
+            //目的防止由于分词破坏了原有的字符意义
+            // 如果是第一个单词
+            /* if(i < (actual.size() - 2)){
+               // 当前单词和下一个单词拼接成新的字符串
+               val nextWord =  thisWord + actual.getJSONObject(i+1).getString("token")
+               sensitiveWordList = nextWord ::sensitiveWordList
+             } else if(0 < i & i < (actual.size() - 2)){
+               // 当前单词和下一个单词拼接成新的字符串
+               val nextWord =  thisWord + actual.getJSONObject(i+1).getString("token")
+               // 当前单词和前后单词拼接成新的字符串
+               val threeWord = actual.getJSONObject(i-1).getString("token") + thisWord + actual.getJSONObject(i+1).getString("token")
+               sensitiveWordList = nextWord :: threeWord ::sensitiveWordList
+             }*/
 
-        /************************如果是一个字则将它与后面的字合并到一起****************************************/
+            /************************如果是一个字则将它与后面的字合并到一起****************************************/
+          }
+        }
+      }catch {
+        case e:SocketException =>{
+        loggers.info("Unexpected end of file from server: " + x)
+        }
       }
       sensitiveWordList
-    }).distinct(10)
+    }).filter(x=>{x!=null}).distinct(10)
 
     //创建一个(word，label) tuples
     val sensitiveWord_2 = sensitiveWord.map(x=>{(Seq(x),1.0)})
     val unSensitiveWords_2 = unSensitiveWords.subtract(sensitiveWord).map(x=>{(Seq(x),0.0)})
-    val Array(t1 ,t2,t3) = unSensitiveWords_2.randomSplit(Array(0.2,0.4,0.4))
+    //val Array(t1 ,t2,t3) = unSensitiveWords_2.randomSplit(Array(0.2,0.4,0.4))
     val rdd = sensitiveWord_2.union(unSensitiveWords_2)
     val trainDataFrame = sqlContext.createDataFrame(rdd).toDF("word","label")
     val Array(trainData,testData) = trainDataFrame.randomSplit(Array(0.8,0.2))
-    val hashingTF = new  HashingTF().setInputCol("word").setOutputCol("rawFeatures").setNumFeatures(2000)
-    val tf = hashingTF.transform(trainData)
+    val hashingTF = new  HashingTF().setInputCol("word").setOutputCol("rawFeatures").setNumFeatures(200)
+    val tf = hashingTF.transform(trainDataFrame)
     tf.printSchema()
     val idf = new IDF().setInputCol("rawFeatures").setOutputCol("features")
     val idfModel = idf.fit(tf)
@@ -118,20 +133,19 @@ object MLSensitiveWord {
 
     tfidf.printSchema()
 
-    // 进行贝叶斯计算
-    val nb = new NaiveBayes().setSmoothing(1.0).setModelType("multinomial")
-    val model = nb.fit(tfidf)
-    // 保存贝叶斯模型
-    val path = new Path(modelDir)
-    val hadoopConf = sc.hadoopConfiguration
-    val hdfs = org.apache.hadoop.fs.FileSystem.get(hadoopConf)
-    hdfs.deleteOnExit(path)
-
-    // 保存模型
-    model.write.overwrite().save(modelDir)
-
+    if(args.length>0 && args(0).equals("training")) {
+      // 进行贝叶斯计算
+      val nb = new NaiveBayes().setSmoothing(1.0).setModelType("multinomial")
+      val model = nb.fit(tfidf)
+      // 保存贝叶斯模型
+      val path = new Path(modelDir)
+      val hadoopConf = sc.hadoopConfiguration
+      val hdfs = org.apache.hadoop.fs.FileSystem.get(hadoopConf)
+      hdfs.deleteOnExit(path)
+      // 保存模型
+      model.write.overwrite().save(modelDir)
+    }else if(args.length>0 && args(0).equals("test")){
     /****************************开始测试*****************************/
-    if(args.length>0 && args(0).equals("test")){
       loggers.info("Start test this model:")
       val unSensitiveWordsCount = unSensitiveWords.count()
       val testRdd = sensitiveWord_2.union(unSensitiveWords_2)
@@ -170,10 +184,10 @@ object MLSensitiveWord {
       val score = precision * recall/2/(recall + precision)
 
 
-      truePositive.select("word").map(x=>{x.getList(0).get(0).toString}).saveAsTextFile("truePositive")
-      trueNegative.select("word").map(x=>{x.getList(0).get(0).toString}).saveAsTextFile("trueNegative")
-      falsePositive.select("word").map(x=>{x.getList(0).get(0).toString}).saveAsTextFile("falsePositive")
-      falseNegative.select("word").map(x=>{x.getList(0).get(0).toString}).saveAsTextFile("falseNegative")
+      //truePositive.select("word").map(x=>{x.getList(0).get(0).toString}).saveAsTextFile("truePositive")
+      //trueNegative.select("word").map(x=>{x.getList(0).get(0).toString}).saveAsTextFile("trueNegative")
+      //falsePositive.select("word").map(x=>{x.getList(0).get(0).toString}).saveAsTextFile("falsePositive")
+      //falseNegative.select("word").map(x=>{x.getList(0).get(0).toString}).saveAsTextFile("falseNegative")
       out.show(1000)
       loggers.info("正确判断：正确判断敏感词个数 ：" +  tp + "正确判断非敏感词个数" + tn)
       loggers.info("打标错误，正常词打成敏感词个数："+ fp + " 敏感词打成正常词个数：" + fn )

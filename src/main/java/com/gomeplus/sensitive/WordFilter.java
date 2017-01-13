@@ -392,7 +392,11 @@ public class WordFilter {
                     .replace("\\", "")
                     .replace("&", "")
                     .replace("@", "")
-                    .replace(" ", "").trim();
+                    .replace(" ", "")
+                    .replace("？","")
+                    .replace("】","")
+                    .replace("”","'")
+                    .replace("“","'").trim();
             try{
                 HttpGet getRequest = new HttpGet("/_analyze?text=" + textSymbolFilter + "&analyzer=ik_smart&pretty");
                 HttpResponse response = httpClient.execute(target, getRequest);
@@ -519,6 +523,7 @@ public class WordFilter {
                 e.printStackTrace();
             }
         }
+        loggers.info("Complete the sensitive words");
        return sensitiveResult;
     }
 
