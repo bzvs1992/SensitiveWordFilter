@@ -52,10 +52,10 @@ object MLSensitiveWordStreaming {
     val ssc = new StreamingContext(sc, Seconds(10))
     //ssc.checkpoint("checkpoint")
     val topicMap = topics.split(",").map((_, numThreads.toInt)).toMap
-    val lines = KafkaUtils.createStream(ssc, zkQuorum, "SensitiveFilter", topicMap).map(_._2).filter(_.size>0)
+    val lines = KafkaUtils.createStream(ssc, zkQuorum, "SensitiveFilterFound", topicMap).map(_._2).filter(_.size>0)
 
     // 通过流获取的数据作为测试数据使用
-    val words = lines.map(x=>{
+    val contents = lines.map(x=>{
       var jsonObject= new JSONObject()
       try {
          jsonObject = JSON.parseObject(x)
@@ -81,7 +81,9 @@ object MLSensitiveWordStreaming {
         val text =""
         text
       }
-    }).filter(_.length>0)
+    })
+
+    val words = contents.filter(_.length>0)
       .flatMap(x=>{
         val result = Http(url)
           .param("pretty","true")
@@ -103,7 +105,7 @@ object MLSensitiveWordStreaming {
       val dataStreaming = sqlContext.createDataFrame(x).toDF("word","label")
       var data = dataStreaming.rdd.map(x=>((x.getString(0))))
       if(dataStreaming.count() > 0){
-        val hashingTFString = new  HashingTF().setInputCol("word").setOutputCol("rawFeatures").setNumFeatures(2000)
+        val hashingTFString = new  HashingTF().setInputCol("word").setOutputCol("rawFeatures").setNumFeatures(200)
         val tfString = hashingTFString.transform(dataStreaming)
         val idfString = new IDF().setInputCol("rawFeatures").setOutputCol("features")
         val idfModelString = idfString.fit(tfString)
@@ -131,7 +133,7 @@ object MLSensitiveWordStreaming {
     })
 
     train.print()
-    lines.transform(x=>{
+    contents.transform(x=>{
       x.saveAsTextFile(topics)
       x
     }).print()

@@ -157,7 +157,7 @@ public class Conf {
     public String getStormId(){
         return commendHashMap.containsKey("--" + STORM_ID) ?
                 commendHashMap.get("--" + STORM_ID):
-                properties.getProperty(STORM_ID);
+                properties.getProperty(STORM_ID,"sensitiveFilter");
     }
 
     public String getStormName(){
