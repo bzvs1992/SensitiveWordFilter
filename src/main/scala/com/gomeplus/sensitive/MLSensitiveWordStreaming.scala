@@ -1,6 +1,6 @@
 package com.gomeplus.sensitive
 
-import java.net.InetSocketAddress
+import java.net.{SocketException, InetSocketAddress}
 
 import com.alibaba.fastjson.{JSONObject, JSONException, JSON}
 import com.gomeplus.util.Conf
@@ -76,7 +76,13 @@ object MLSensitiveWordStreaming {
           .replace("!", "")
           .replace("//", "")
           .replace("\\", "")
-          .replace("&", "").trim
+          .replace("&", "")
+          // 中文字符的替换
+          .replace("？","")
+          .replace("】","")
+          .replace("”","'")
+          .replace("“","'")
+          .trim
       }else{
         val text =""
         text
@@ -85,18 +91,29 @@ object MLSensitiveWordStreaming {
 
     val words = contents.filter(_.length>0)
       .flatMap(x=>{
-        val result = Http(url)
-          .param("pretty","true")
-          .param("analyzer","ik_smart")
-          .param("text",x)
-          .asString.body
-        val actual = JSON.parseObject(result).getJSONArray("tokens")
         var sensitiveWordList = List(new String)
-        for(i<- 0 until  actual.size()){
-          sensitiveWordList = actual.getJSONObject(i).getString("token") ::sensitiveWordList
+        try{
+          val result = Http(url)
+            .param("pretty","true")
+            .param("analyzer","ik_smart")
+            .param("text",x)
+            .asString.body
+          val actual = JSON.parseObject(result).getJSONArray("tokens")
+          if(actual != null){
+            for(i <- 0 until  actual.size()){
+              val thisWord = actual.getJSONObject(i).getString("token")
+              //将长度为1的语句不作为敏感词汇处理
+              if(thisWord.size > 1){
+                sensitiveWordList = thisWord ::sensitiveWordList
+              }
+            }
+          }
+        }catch {
+          case e:SocketException =>{
+            loggers.info("Unexpected end of file from server: " + x)
+          }
         }
-      //println("word is " + sensitiveWordList)
-      sensitiveWordList
+        sensitiveWordList
     }).map(x=>{(Seq(x),0.0)})
 
 

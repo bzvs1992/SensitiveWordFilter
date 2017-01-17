@@ -85,7 +85,7 @@ object MLSensitiveWord {
           .asString.body
         val actual = JSON.parseObject(result).getJSONArray("tokens")
         if(actual!= null){
-          for(i <- 0 to actual.size() - 1){
+          for(i <- 0 until  actual.size()){
             val thisWord = actual.getJSONObject(i).getString("token")
             //将长度为1的语句不作为敏感词汇处理
             if(thisWord.size > 1){
