@@ -1,1 +1,1 @@
-spark-submit --master yarn --class com.gomeplus.sensitive.MLSensitiveWord --jars lib/elasticsearch-hadoop-2.4.0.jar,lib/lucene-core-5.5.2.jar,lib/scalaj-http_2.10-2.3.0.jar,lib/fastjson-1.2.0.jar  lib/SensitiveWordFilter-1.0-SNAPSHOT.jar  test
+spark-submit --master yarn --class com.gomeplus.sensitive.MLSensitiveWord --jars lib/elasticsearch-hadoop-2.4.0.jar,lib/lucene-core-5.5.2.jar,lib/scalaj-http_2.10-2.3.0.jar,lib/fastjson-1.2.0.jar  lib/SensitiveWordFilter-1.0-SNAPSHOT.jar  training
