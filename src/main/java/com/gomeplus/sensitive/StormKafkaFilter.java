@@ -1,6 +1,8 @@
 package com.gomeplus.sensitive;
 
 import com.gomeplus.util.Conf;
+import kafka.utils.ZKConfig;
+import org.I0Itec.zkclient.ZkClient;
 import org.apache.storm.Config;
 import org.apache.storm.LocalCluster;
 import org.apache.storm.StormSubmitter;
@@ -31,6 +33,10 @@ public class StormKafkaFilter {
     private static final String CLUSTER = "cluster";
 
     private static final String MODEL = "model";
+
+    // 设置链接zk超时时间
+    private static final int zkSessionTimeoutMs = 30000;
+    private static final int zkConnectionTimeoutMs = 30000;
     /**
      * 敏感词获取接口操作
      */
@@ -38,6 +44,7 @@ public class StormKafkaFilter {
         Conf conf = new Conf();
         conf.parse(args);
         String topic = conf.getTopic();
+        String outputTopic= conf.getStormToKafkaTopic();
         String[] zkServers = conf.getZkServers().split(",");
         List<String> zkHosts = new ArrayList<>();
         for(String zkServer:zkServers){
@@ -52,16 +59,25 @@ public class StormKafkaFilter {
         BrokerHosts brokerHosts = new ZkHosts(zkStr);
 
         SpoutConfig spoutConf = new SpoutConfig(brokerHosts, topic, zkRoot, clientId);
+
         spoutConf.scheme = new SchemeAsMultiScheme(new StringScheme());
         //只有在local模式下需要记录读取状态时，才需要设置
         spoutConf.zkServers = zkHosts;
         spoutConf.zkPort = Integer.valueOf(conf.getZkPort());
         TopologyBuilder builder = new TopologyBuilder();
 
+        //通过zk获取topic的分区信息
+        ZkClient zk = new ZkClient(zkStr, zkSessionTimeoutMs, zkConnectionTimeoutMs);
+        String inputPath = "/brokers/topics/"+topic+"/partitions";
+        String outputPath = "/brokers/topics/"+outputTopic+"/partitions";
+        int inputNum = zk.exists(inputPath)?zk.getChildren(inputPath).size():1;
+        int outputNum = zk.exists(outputPath)?zk.getChildren(outputPath).size():1;
+        zk.close();
+
         //从kafka的消息队里获取数据到KAFKA_SPOUT_ID内
-        builder.setSpout(KAFKA_SPOUT_ID, new KafkaSpout(spoutConf), 3);
+        builder.setSpout(KAFKA_SPOUT_ID, new KafkaSpout(spoutConf), inputNum);
         //将过滤的数据输出命名为SENSITIVE_FILTER的的bolt中
-        builder.setBolt(SENSITIVE_FILTER, new SensitiveWordKafkaBolt(),3).shuffleGrouping(KAFKA_SPOUT_ID);
+        builder.setBolt(SENSITIVE_FILTER, new SensitiveWordKafkaBolt(),3*inputNum).shuffleGrouping(KAFKA_SPOUT_ID);
         // 创建kafka bolt 将数据发送到kafka
         // 设置producer配置
         Properties props = new Properties();
@@ -72,11 +88,11 @@ public class StormKafkaFilter {
         KafkaBolt bolt = new KafkaBolt()
                 .withProducerProperties(props)
                 .withTupleToKafkaMapper(new FieldNameBasedTupleToKafkaMapper())
-                .withTopicSelector(new DefaultTopicSelector(conf.getStormToKafkaTopic()));
+                .withTopicSelector(new DefaultTopicSelector(outputTopic));
 
         // 将bolt产生的数据 输出数据到kafka
         //管道名称SEND_TO_KAFKA
-        builder.setBolt(SEND_TO_KAFKA,bolt,3).shuffleGrouping(SENSITIVE_FILTER);
+        builder.setBolt(SEND_TO_KAFKA,bolt,outputNum).shuffleGrouping(SENSITIVE_FILTER);
         // 设置storm 的配置
         Config config = new Config();
         config.setNumAckers(0);

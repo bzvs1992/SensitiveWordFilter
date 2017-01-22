@@ -209,7 +209,9 @@ public class Conf {
     }
 
     public String getJsonText(){
-        return properties.getProperty(JSON_TEXT);
+        return commendHashMap.containsKey("--" +JSON_TEXT)?
+                commendHashMap.get("--" + JSON_TEXT):
+                properties.getProperty(JSON_TEXT);
     }
 
     public String getRabbitMQProducerName(){
