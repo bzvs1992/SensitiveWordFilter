@@ -24,7 +24,7 @@ import scalaj.http.Http
 object MLSensitiveWordStreaming {
 
   val loggers = LoggerFactory.getLogger("MLSensitiveWord Streaming")
-  val ikMain = "ik_main"
+  val ikMain = "ik_main_confirm"
   val modelDir = "modelDir"
   def main(args: Array[String]) {
     // 参数解析
