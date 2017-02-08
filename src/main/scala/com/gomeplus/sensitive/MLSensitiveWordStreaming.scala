@@ -49,7 +49,7 @@ object MLSensitiveWordStreaming {
 
     val sqlContext = new SQLContext(sc)
     // 流数据计算
-    val ssc = new StreamingContext(sc, Seconds(10))
+    val ssc = new StreamingContext(sc, Seconds(60))
     //ssc.checkpoint("checkpoint")
     val topicMap = topics.split(",").map((_, numThreads.toInt)).toMap
     val lines = KafkaUtils.createStream(ssc, zkQuorum, "SensitiveFilterFound", topicMap).map(_._2).filter(_.size>0)
