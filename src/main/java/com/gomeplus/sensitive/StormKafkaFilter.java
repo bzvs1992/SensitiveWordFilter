@@ -62,8 +62,8 @@ public class StormKafkaFilter {
 
         spoutConf.scheme = new SchemeAsMultiScheme(new StringScheme());
         //只有在local模式下需要记录读取状态时，才需要设置
-        spoutConf.zkServers = zkHosts;
-        spoutConf.zkPort = Integer.valueOf(conf.getZkPort());
+        //spoutConf.zkServers = zkHosts;
+        //spoutConf.zkPort = Integer.valueOf(conf.getZkPort());
         TopologyBuilder builder = new TopologyBuilder();
 
         //通过zk获取topic的分区信息
