@@ -4,6 +4,7 @@ import java.net.{SocketException, InetSocketAddress}
 
 import com.alibaba.fastjson.{JSONObject, JSONException, JSON}
 import com.gomeplus.util.Conf
+import kafka.serializer.StringDecoder
 import org.apache.spark.ml.classification.NaiveBayesModel
 import org.apache.spark.ml.feature.{HashingTF, IDF}
 import org.apache.spark.sql.SQLContext
@@ -39,6 +40,8 @@ object MLSensitiveWordStreaming {
     val topics = config.getTopic
     val numThreads = config.getStreamingNumThreads
     val jsonText = config.getJsonText.split(",")
+    val brokers = config.getBootstrapServers
+    val kafkaParams = Map[String, String]("metadata.broker.list" -> brokers)
 
     // 创建spark项目
     val sparkConf = new SparkConf()
@@ -49,11 +52,11 @@ object MLSensitiveWordStreaming {
 
     val sqlContext = new SQLContext(sc)
     // 流数据计算
-    val ssc = new StreamingContext(sc, Seconds(60))
-    //ssc.checkpoint("checkpoint")
-    val topicMap = topics.split(",").map((_, numThreads.toInt)).toMap
-    val lines = KafkaUtils.createStream(ssc, zkQuorum, "SensitiveFilterFound", topicMap).map(_._2).filter(_.size>0)
-
+    val ssc = new StreamingContext(sc, Seconds(10))
+    val topicsSet = topics.split(",").toSet
+    val lines = KafkaUtils.createDirectStream[String, String, StringDecoder, StringDecoder](
+      ssc, kafkaParams,topicsSet).map(_._2).filter(_.nonEmpty)
+    //val lines = KafkaUtils.createStream(ssc, zkQuorum, "SensitiveFilterFound", topicMap).map(_._2).filter(_.size>0)
     // 通过流获取的数据作为测试数据使用
     val contents = lines.map(x=>{
       var jsonObject= new JSONObject()
