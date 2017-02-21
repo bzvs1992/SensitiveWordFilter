@@ -88,11 +88,14 @@ public class WordFilter {
     // http post
     private HttpPost httpPost = null;
 
+    private String jsonText = null;
+
     /**
      * 构造函数，负责读取配置文件，完成Es设置
      */
     public WordFilter() {
         conf = new Conf();
+        jsonText = conf.getJsonText();
         loggers = LoggerFactory.getLogger(WordFilter.class);
         String[] esHostname = conf.getEsHostname().split(",");
         String clusterName = conf.getEsClusterName();
@@ -483,7 +486,10 @@ public class WordFilter {
         return  deleteRequest;
     }
 
-
+    public void setJsonText(String str){
+        loggers.info("this word is " + str);
+        this.jsonText = str;
+    }
 
     /**
      * 将text转换成json格式，并从中获取文本信息
@@ -494,7 +500,8 @@ public class WordFilter {
             loggers.debug("text is:" + text);
             try{
                 JSONObject jsonObject =  JSONObject.parseObject(text);
-                String[] jsonText = conf.getJsonText().split(",");
+                loggers.info("this $json.text is " + this.jsonText);
+                String[] jsonText = this.jsonText.split(",");
                 int size = jsonText.length;
                 if(null != jsonObject) {
                     JSONObject jsonObjectContext = jsonObject;

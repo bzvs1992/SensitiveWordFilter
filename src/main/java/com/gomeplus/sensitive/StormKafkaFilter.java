@@ -77,7 +77,9 @@ public class StormKafkaFilter {
         //从kafka的消息队里获取数据到KAFKA_SPOUT_ID内
         builder.setSpout(KAFKA_SPOUT_ID, new KafkaSpout(spoutConf), inputNum);
         //将过滤的数据输出命名为SENSITIVE_FILTER的的bolt中
-        builder.setBolt(SENSITIVE_FILTER, new SensitiveWordKafkaBolt(),3*inputNum).shuffleGrouping(KAFKA_SPOUT_ID);
+        SensitiveWordKafkaBolt sensitiveWordKafkaBolt =  new SensitiveWordKafkaBolt();
+
+        builder.setBolt(SENSITIVE_FILTER, sensitiveWordKafkaBolt,sensitiveWordKafkaBolt.setJsonText(conf.getJsonText(),inputNum)).shuffleGrouping(KAFKA_SPOUT_ID);
         // 创建kafka bolt 将数据发送到kafka
         // 设置producer配置
         Properties props = new Properties();
