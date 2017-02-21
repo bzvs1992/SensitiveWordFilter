@@ -30,10 +30,21 @@ public class SensitiveWordKafkaBolt extends BaseRichBolt {
     public static synchronized WordFilter getWordFilter(){
         return  wordFilter ==null ? (wordFilter = new WordFilter()): wordFilter;
     }
+
+    private String jsonText = null;
+
+    //设置需要解析的json格式
+    public int setJsonText(String jsonTexts,int num){
+        this.jsonText = jsonTexts;
+        return num * 2;
+    }
+
     public void execute(Tuple tuple) {
         if(tuple.size()>0){
             String text = tuple.getString(0);
             getWordFilter();
+            loggers.info("The $json.text is "  + jsonText);
+            wordFilter.setJsonText(jsonText);
             String content = wordFilter.getText(text);
             if(null != content){
                 collector.emit(tuple,new Values("word",content));

@@ -70,7 +70,8 @@ public class StormRabbitFilter {
                 .addConfigurations(spoutConfig.asMap()).setMaxSpoutPending(200);
 
         //将过滤的数据输出命名为SENSITIVE_FILTER的的bolt中
-        builder.setBolt(SENSITIVE_FILTER, new SensitiveWordKafkaBolt()).shuffleGrouping(RABBIT_SPOUT_ID);
+        SensitiveWordMqBolt sensitiveWordMqBolt =  new SensitiveWordMqBolt();
+        builder.setBolt(SENSITIVE_FILTER,sensitiveWordMqBolt,sensitiveWordMqBolt.setJsonText(conf.getJsonText(),2) ).shuffleGrouping(RABBIT_SPOUT_ID);
 
 
         TupleToMessage schemeT = new TupleToMessageNonDynamic() {
