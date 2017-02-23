@@ -487,7 +487,7 @@ public class WordFilter {
     }
 
     public void setJsonText(String str){
-        loggers.info("this word is " + str);
+        //loggers.info("this word is " + str);
         this.jsonText = str;
     }
 
@@ -497,10 +497,10 @@ public class WordFilter {
     public String getText(String text){
         String sensitiveResult = null;
         if(null != text){
-            loggers.debug("text is:" + text);
+            //loggers.debug("text is:" + text);
             try{
                 JSONObject jsonObject =  JSONObject.parseObject(text);
-                loggers.info("this $json.text is " + this.jsonText);
+                //loggers.info("this $json.text is " + this.jsonText);
                 String[] jsonText = this.jsonText.split(",");
                 int size = jsonText.length;
                 if(null != jsonObject) {

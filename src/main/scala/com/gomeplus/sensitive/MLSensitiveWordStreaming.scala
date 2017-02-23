@@ -27,6 +27,7 @@ object MLSensitiveWordStreaming {
   val loggers = LoggerFactory.getLogger("MLSensitiveWord Streaming")
   val ikMain = "ik_main_confirm"
   val modelDir = "modelDir"
+  val saveData = "sensitiveWordData/"
   def main(args: Array[String]) {
     // 参数解析
     val config = new Conf()
@@ -90,9 +91,9 @@ object MLSensitiveWordStreaming {
         val text =""
         text
       }
-    })
+    }).filter(_.length>0)
 
-    val words = contents.filter(_.length>0)
+    val words = contents
       .flatMap(x=>{
         var sensitiveWordList = List(new String)
         try{
@@ -148,13 +149,13 @@ object MLSensitiveWordStreaming {
         //loggers.debug("sensitiveword is: " + word._2)
         ("word",word._2)})
       //将新的敏感词存入ES
-      out.saveToEs("gome/word1")
+      out.saveToEs("gomeMachineLearn/word")
       out
     })
 
     train.print()
     contents.transform(x=>{
-      x.saveAsTextFile(topics)
+      x.saveAsTextFile(saveData + topics)
       x
     }).print()
     ssc.start()
