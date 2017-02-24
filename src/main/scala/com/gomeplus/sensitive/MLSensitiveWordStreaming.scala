@@ -1,6 +1,7 @@
 package com.gomeplus.sensitive
 
-import java.net.{SocketException, InetSocketAddress}
+import java.net.{SocketException}
+import java.util.Date
 
 import com.alibaba.fastjson.{JSONObject, JSONException, JSON}
 import com.gomeplus.util.Conf
@@ -9,12 +10,8 @@ import org.apache.spark.ml.classification.NaiveBayesModel
 import org.apache.spark.ml.feature.{HashingTF, IDF}
 import org.apache.spark.sql.SQLContext
 import org.apache.spark.streaming.kafka.KafkaUtils
-import org.apache.spark.streaming.{Seconds, StreamingContext}
+import org.apache.spark.streaming.{Time, Seconds, StreamingContext}
 import org.apache.spark.{SparkConf, SparkContext}
-import org.elasticsearch.action.admin.indices.analyze.AnalyzeResponse
-import org.elasticsearch.client.transport.TransportClient
-import org.elasticsearch.common.settings.Settings
-import org.elasticsearch.common.transport.InetSocketTransportAddress
 import org.elasticsearch.spark._
 import org.slf4j.LoggerFactory
 import scalaj.http.Http
@@ -43,7 +40,6 @@ object MLSensitiveWordStreaming {
     val jsonText = config.getJsonText.split(",")
     val brokers = config.getBootstrapServers
     val kafkaParams = Map[String, String]("metadata.broker.list" -> brokers)
-
     // 创建spark项目
     val sparkConf = new SparkConf()
     sparkConf.set("es.nodes",config.getEsHostname)
@@ -53,7 +49,7 @@ object MLSensitiveWordStreaming {
 
     val sqlContext = new SQLContext(sc)
     // 流数据计算
-    val ssc = new StreamingContext(sc, Seconds(10))
+    val ssc = new StreamingContext(sc, Seconds(60))
     val topicsSet = topics.split(",").toSet
     val lines = KafkaUtils.createDirectStream[String, String, StringDecoder, StringDecoder](
       ssc, kafkaParams,topicsSet).map(_._2).filter(_.nonEmpty)
@@ -91,7 +87,7 @@ object MLSensitiveWordStreaming {
         val text =""
         text
       }
-    }).filter(_.length>0)
+    })
 
     val words = contents
       .flatMap(x=>{
@@ -120,8 +116,6 @@ object MLSensitiveWordStreaming {
         sensitiveWordList
     }).map(x=>{(Seq(x),0.0)})
 
-
-
     val train = words.transform(x=>{
       val dataStreaming = sqlContext.createDataFrame(x).toDF("word","label")
       var data = dataStreaming.rdd.map(x=>((x.getString(0))))
@@ -141,23 +135,27 @@ object MLSensitiveWordStreaming {
       val out = data.map(word=>{
         val jedisCluster = JedisClient.getJedisCluster(redisHost)
         val reply = jedisCluster.sadd(ikMain,word)
-        if(reply == 1){
-          jedisCluster.publish(ikMain,word)
-        }
+        /** 暂时注释掉这句，避免数据太多
+          * if(reply == 1){
+          * jedisCluster.publish(ikMain,word)
+          * }*/
         (reply,word)
       }).filter(x=>x._1 == 1).map(word=>{
         //loggers.debug("sensitiveword is: " + word._2)
         ("word",word._2)})
       //将新的敏感词存入ES
-      out.saveToEs("gomeMachineLearn/word")
+      out.saveToEs("machinelearn/sensitive")
       out
     })
 
     train.print()
-    contents.transform(x=>{
-      x.saveAsTextFile(saveData + topics)
+    contents.foreachRDD(x=>{
+      val time = new Date().getTime
+      if(!x.isEmpty()){
+        x.saveAsTextFile(saveData + topics+ "/data" + time)
+      }
       x
-    }).print()
+    })
     ssc.start()
     ssc.awaitTermination()
   }
