@@ -347,7 +347,7 @@ public class WordFilter {
                     String word = analyzeToken.getTerm();
                     //如果是敏感词
                     String isSensitive = searchWord(word);
-                    if (null!=isSensitive) {
+                    if (null != isSensitive) {
                         int startOffset = analyzeToken.getStartOffset();
                         int endOffset = analyzeToken.getEndOffset();
                         //递归查询是否是敏感词
@@ -360,12 +360,13 @@ public class WordFilter {
                                 String newWordIsSensitive = searchWord(newWord);
                                 // 是敏感词则返回true
                                 if (null != newWordIsSensitive) {
+                                    loggers.info( "Sensitive word :" + newWord);
                                     result = true;
                                     return result;
                                 }
                             }
                         }
-                        loggers.debug("Analyze Sensitive word : " + word);
+                        loggers.info("Sensitive word : " + word);
                         result = true;
                         return result;
                     }
@@ -487,7 +488,7 @@ public class WordFilter {
     }
 
     public void setJsonText(String str){
-        loggers.info("this word is " + str);
+        //loggers.info("this word is " + str);
         this.jsonText = str;
     }
 
@@ -497,10 +498,10 @@ public class WordFilter {
     public String getText(String text){
         String sensitiveResult = null;
         if(null != text){
-            loggers.debug("text is:" + text);
+            //loggers.debug("text is:" + text);
             try{
                 JSONObject jsonObject =  JSONObject.parseObject(text);
-                loggers.info("this $json.text is " + this.jsonText);
+                //loggers.info("this $json.text is " + this.jsonText);
                 String[] jsonText = this.jsonText.split(",");
                 int size = jsonText.length;
                 if(null != jsonObject) {

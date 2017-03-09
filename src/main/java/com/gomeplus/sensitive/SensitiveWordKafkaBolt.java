@@ -43,7 +43,7 @@ public class SensitiveWordKafkaBolt extends BaseRichBolt {
         if(tuple.size()>0){
             String text = tuple.getString(0);
             getWordFilter();
-            loggers.info("The $json.text is "  + jsonText);
+            //loggers.info("The $json.text is "  + jsonText);
             wordFilter.setJsonText(jsonText);
             String content = wordFilter.getText(text);
             if(null != content){
