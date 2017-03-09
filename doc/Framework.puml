@@ -30,30 +30,28 @@ MINUTES
 
 [基于规则机器学习]
 [HDFS]
-:业务员:
 
 package "ElasticSearch" {
 [update]
 [analy]
 [search]
 }
-package "MachineLearning" {
+package "spark" {
 [SparkMlib]
 [SparkStreaming]
 }
-[kafka:数据输入流] -[#00AA11]-> MachineLearning :敏感词热发现
-MachineLearning -[#00AA11]-> [redis] : 新发现的敏感词存储到
+[kafka:数据输入流] -[#00AA11]-> spark :敏感词热发现
+spark -[#00AA11]-> [redis] : 新发现的敏感词存储到
 [redis] -[#00AA11]-> [update] : 热词更新
-MachineLearning -[#00AA11]-> [HDFS] : 将输入数据持久化
-
-:业务员: --> ElasticSearch :定期检验敏感词库的准确性
+spark -[#00AA11]-> [HDFS] : 将输入数据持久化
 
 
-[kafka:数据输入流] -[#0000FF]> analy : 实时文本处理
- analy -[#0000FF]->  基于规则机器学习 : 分词
+
+[kafka:数据输入流] -[#0000FF]> [storm:实时文本处理]
+ [storm:实时文本处理] -[#0000FF]->  基于规则机器学习 : 敏感过滤
  基于规则机器学习 <-[#0000FF]-> [search]
- 基于规则机器学习  -[#0000FF]-> [kafka:输出流] : 非敏感词语句
- 基于规则机器学习  -[#0000FF]-> [kafka:敏感语句流]: 敏感词语句
+  基于规则机器学习 <-[#0000FF]-> [analy]
+ 基于规则机器学习  -[#0000FF]-> [kafka:输出流] : 敏感词语句标记
 
 
 @enduml
@@ -99,3 +97,52 @@ redis -> elasticsearch: 更新Es敏感词库,创建敏感词库索引
 业务人员 -> 不健康语句流: 针对一些评论类操作,业务人员可以进行敏感词人工判断
 @enduml
 
+
+@startuml
+package "视频终端" {
+[M站]
+[H5]
+[web]
+}
+
+package "数据存储"{
+[ES]
+[Redis]
+[hive]
+[Hbase]
+}
+
+package "推荐算法"{
+[sql级推荐]
+[初步设计标签体系,用户画像]
+[订阅,历史推荐,完善用户画像]
+[个性化推荐,微服务]
+}
+视频终端 -> 数据存储 : flume 数据清理
+数据存储 -> Redis : 实时推荐数据
+数据存储-> hive :  历史行为数据,
+数据存储 -> Hbase : 影片详单信息
+数据存储 -> ES : 索引数据
+
+数据存储 -> 推荐算法 : 逐步实现个性化推荐,构建360度用户画像
+推荐算法 -> sql级推荐 : 通过sql挖掘推荐
+推荐算法 -> [初步设计标签体系,用户画像]: 用户自定义标签,描述获取主题词挖掘
+推荐算法-> [订阅,历史推荐,完善用户画像] : 引入订阅推荐订阅,分析历史点播行为推荐
+推荐算法 -> [个性化推荐,微服务] :优化设计实现微信服务推荐,最终推荐结果是各服务的综合,或者排列优先级
+
+基于视频的描述及标题-> [提取关键词,作为标签的依据]
+基于历史点播行为 -> [用户点击视频加权,未点击惩罚,最终计算用户倾向]
+基于时间序列推荐 -> [用户的周期行为,最近一段时间推荐过的]
+基于订阅推荐 -> [订阅新的推荐   ]
+
+@enduml
+
+@startuml
+[PC,APP应用] ->[kafka:input] :产生评论或弹幕语句
+[kafka:input]-> [Storm] : 敏感过滤
+[Storm] ->[kafka:output] : 语句敏感标记
+[kafka:input] ->[spark] : 机器学习发现新的敏感词
+[spark] -> [ElasticSearch] : 敏感词入库
+[spark]-> [Redis] :敏感词入库
+[spark] -> [hdfs] :语句备份
+@enduml

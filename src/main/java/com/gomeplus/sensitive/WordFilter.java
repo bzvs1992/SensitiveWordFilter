@@ -347,7 +347,7 @@ public class WordFilter {
                     String word = analyzeToken.getTerm();
                     //如果是敏感词
                     String isSensitive = searchWord(word);
-                    if (null!=isSensitive) {
+                    if (null != isSensitive) {
                         int startOffset = analyzeToken.getStartOffset();
                         int endOffset = analyzeToken.getEndOffset();
                         //递归查询是否是敏感词
@@ -360,12 +360,13 @@ public class WordFilter {
                                 String newWordIsSensitive = searchWord(newWord);
                                 // 是敏感词则返回true
                                 if (null != newWordIsSensitive) {
+                                    loggers.info( "Sensitive word :" + newWord);
                                     result = true;
                                     return result;
                                 }
                             }
                         }
-                        loggers.debug("Analyze Sensitive word : " + word);
+                        loggers.info("Sensitive word : " + word);
                         result = true;
                         return result;
                     }
